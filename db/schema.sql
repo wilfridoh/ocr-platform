@@ -214,6 +214,9 @@ BEGIN
         AdvertenciasJson        NVARCHAR(MAX) NULL,
         TiemposJson             NVARCHAR(MAX) NULL,
         MotorOcr                NVARCHAR(30) NULL,
+        -- posicion de las palabras y datos del recorte (docs/13 1.3; en BD existentes: migracion_009)
+        PalabrasJson            NVARCHAR(MAX) NULL CONSTRAINT CK_Resultado_PalabrasJson CHECK (PalabrasJson IS NULL OR ISJSON(PalabrasJson) = 1),
+        RecorteJson             NVARCHAR(MAX) NULL CONSTRAINT CK_Resultado_RecorteJson CHECK (RecorteJson IS NULL OR ISJSON(RecorteJson) = 1),
         CreadoEn                DATETIME2 NOT NULL CONSTRAINT DF_Resultado_CreadoEn DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UQ_Resultado_Documento UNIQUE (DocumentoId)
     );

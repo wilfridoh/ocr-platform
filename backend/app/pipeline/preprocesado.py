@@ -118,32 +118,43 @@ def corregir_perspectiva(img: np.ndarray, lado_deteccion: int = 400) -> tuple[np
     """Si la imagen es una foto de un documento/tarjeta tomada en ángulo (sobre un fondo), la "aplana": detecta el
     cuadrilátero del documento y lo proyecta a un rectángulo. Si no hay uno confiable (o el documento ya llena la
     imagen, como un escaneo), devuelve la imagen tal cual y False: nunca fuerza una transformación dudosa."""
+    salida, esquinas = corregir_perspectiva_detalle(img, lado_deteccion)
+    return salida, esquinas is not None
+
+
+def corregir_perspectiva_detalle(img: np.ndarray, lado_deteccion: int = 400) -> tuple[np.ndarray, list[list[float]] | None]:
+    """Como corregir_perspectiva, pero devuelve las 4 esquinas usadas (relativas 0-1 a la imagen original, en orden
+    arriba-izq, arriba-der, abajo-der, abajo-izq) o None si no se recortó."""
     h, w = img.shape[:2]
     if h < 100 or w < 100:
-        return img, False
+        return img, None
     if img.ndim == 2:
-        return img, False  # sin color GrabCut no es fiable; las imágenes en gris suelen ser escaneos
+        return img, None  # sin color GrabCut no es fiable; las imágenes en gris suelen ser escaneos
     esc = min(1.0, lado_deteccion / max(h, w))
     peq = cv2.resize(img, None, fx=esc, fy=esc, interpolation=cv2.INTER_AREA) if esc < 1.0 else img
     try:
         q = _cuadrilatero_documento(peq)
     except cv2.error:
-        return img, False
+        return img, None
     if q is None:
-        return img, False
+        return img, None
     q = q / esc
     q[:, 0] = np.clip(q[:, 0], 0, w - 1)
     q[:, 1] = np.clip(q[:, 1], 0, h - 1)
     esquinas_imagen = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.float32)
     if np.linalg.norm(q - esquinas_imagen, axis=1).max() < 0.05 * max(h, w):
-        return img, False  # el documento ya ocupa todo el encuadre: no hay perspectiva que corregir
+        return img, None  # el documento ya ocupa todo el encuadre: no hay perspectiva que corregir
     ancho = max(np.linalg.norm(q[0] - q[1]), np.linalg.norm(q[3] - q[2]))
     alto = max(np.linalg.norm(q[0] - q[3]), np.linalg.norm(q[1] - q[2]))
     if ancho < 200 or alto < 100 or not (1.0 <= max(ancho, alto) / min(ancho, alto) <= 2.2):
-        return img, False  # proporciones que no son de un documento/tarjeta
+        return img, None  # proporciones que no son de un documento/tarjeta
     destino = np.array([[0, 0], [ancho - 1, 0], [ancho - 1, alto - 1], [0, alto - 1]], dtype=np.float32)
     m = cv2.getPerspectiveTransform(q.astype(np.float32), destino)
-    return cv2.warpPerspective(img, m, (int(round(ancho)), int(round(alto))), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE), True
+    salida = cv2.warpPerspective(
+        img, m, (int(round(ancho)), int(round(alto))), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    )
+    esquinas = [[round(float(x) / w, 4), round(float(y) / h, 4)] for x, y in q]
+    return salida, esquinas
 
 
 def a_gris(img: np.ndarray) -> np.ndarray:
@@ -225,18 +236,40 @@ def reescalar(img: np.ndarray, altura_objetivo: int = 30, ancho_minimo: int = 15
 
 def preprocesar(img: np.ndarray, op: OpcionesPreprocesado | None = None) -> tuple[np.ndarray, list[str], float]:
     """Devuelve (imagen lista para OCR, pasos aplicados, factor de escala aplicado)."""
+    salida, pasos, factor, _ = preprocesar_detalle(img, op)
+    return salida, pasos, factor
+
+
+def preprocesar_detalle(
+    img: np.ndarray, op: OpcionesPreprocesado | None = None
+) -> tuple[np.ndarray, list[str], float, dict]:
+    """Como preprocesar, y además los datos del recorte (docs/13 §1.3), para guardarlos con el resultado:
+    {aplicado, origen ("automatico"|"ninguno"), esquinas (relativas a la imagen original) o None,
+     relacion (lado mayor / menor tras el recorte), orientacion (giro en grados; hoy siempre 0), deskew (grados)}.
+    Las coordenadas de las palabras del OCR quedan sobre la imagen resultante (recortada y enderezada)."""
     op = op or OpcionesPreprocesado()
     pasos: list[str] = []
+    esquinas = None
     if op.perspectiva:
-        img, aplicada = corregir_perspectiva(img)
-        if aplicada:
+        img, esquinas = corregir_perspectiva_detalle(img)
+        if esquinas is not None:
             pasos.append("perspectiva")
+    h, w = img.shape[:2]
+    recorte = {
+        "aplicado": esquinas is not None,
+        "origen": "automatico" if esquinas is not None else "ninguno",
+        "esquinas": esquinas,
+        "relacion": round(max(h, w) / max(1, min(h, w)), 3),
+        "orientacion": 0,
+        "deskew": 0.0,
+    }
     gris = a_gris(img)
     pasos.append("gris")
     if op.deskew:
         gris, ang = deskew(gris)
         if ang:
             pasos.append(f"deskew({ang:.2f})")
+            recorte["deskew"] = round(float(ang), 2)
     if op.denoise:
         gris = denoise(gris)
         pasos.append("denoise")
@@ -249,4 +282,4 @@ def preprocesar(img: np.ndarray, op: OpcionesPreprocesado | None = None) -> tupl
     if op.binarizar:
         salida, metodo = binarizar(gris)
         pasos.append(f"binarizacion({metodo})")
-    return salida, pasos, factor
+    return salida, pasos, factor, recorte

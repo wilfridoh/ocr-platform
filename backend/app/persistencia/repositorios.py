@@ -232,6 +232,8 @@ def guardar_resultado(
     tiempos_ms: dict,
     motor_ocr: str,
     campos: list[dict],
+    palabras_json: str | None = None,
+    recorte_json: str | None = None,
 ) -> m.Resultado:
     existente = db.execute(select(m.Resultado).where(m.Resultado.DocumentoId == documento.DocumentoId)).scalars().first()
     if existente:
@@ -250,6 +252,8 @@ def guardar_resultado(
         AdvertenciasJson=json.dumps(advertencias, ensure_ascii=False),
         TiemposJson=json.dumps(tiempos_ms, ensure_ascii=False),
         MotorOcr=motor_ocr,
+        PalabrasJson=palabras_json,
+        RecorteJson=recorte_json,
     )
     db.add(resultado)
     db.flush()

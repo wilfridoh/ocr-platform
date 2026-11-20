@@ -11,6 +11,7 @@ from ..almacen import AlmacenDisco
 from ..dominio.modelos import CampoExtraidoDTO, Clasificacion, PlantillaDTO, ResultadoDTO
 from ..pipeline import clasificador as clasificador_mod
 from ..pipeline import ensamblador as ensamblador_mod
+from ..pipeline import posiciones
 from ..pipeline.extractor import extraer_campos
 from ..pipeline.ingesta import ErrorIngesta, extension_de
 from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
@@ -162,6 +163,8 @@ def _procesar_documento(
             tiempos_ms=resultado.tiempos_ms,
             motor_ocr=motor_usado,
             campos=[c.model_dump() for c in campos_dto],
+            palabras_json=posiciones.palabras_json(paginas),
+            recorte_json=posiciones.recorte_json(paginas),
         )
         sin_coincidencia = flujo is not None and clasificacion.tipo == "desconocido"
         repo.actualizar_estado_documento(db, documento, "NO_COINCIDE" if sin_coincidencia else "COMPLETADO")

@@ -6,7 +6,7 @@ import time
 from ..dominio.modelos import PaginaOCR
 from . import ocr as ocr_mod
 from .ingesta import DocumentoIngresado, ingerir
-from .preprocesado import OpcionesPreprocesado, preprocesar
+from .preprocesado import OpcionesPreprocesado, preprocesar_detalle
 
 
 class ErrorPipeline(RuntimeError):
@@ -40,6 +40,8 @@ def procesar_bytes(
         tiempos["ocr"] = 0
         for p in doc.paginas_nativas:
             p.motor = "pdf-nativo"
+            p.recorte = {"aplicado": False, "origen": "pdf", "esquinas": None, "orientacion": 0, "deskew": 0.0,
+                         "relacion": round(max(p.ancho, p.alto) / max(1, min(p.ancho, p.alto)), 3)}
         return doc, doc.paginas_nativas, "pdf-nativo", tiempos
 
     op = OpcionesPreprocesado(
@@ -53,10 +55,12 @@ def procesar_bytes(
     t0 = time.perf_counter()
     imagenes_proc = []
     pasos_por_pagina = []
+    recortes = []
     for img in doc.imagenes:
-        proc, pasos, _factor = preprocesar(img, op)
+        proc, pasos, _factor, recorte = preprocesar_detalle(img, op)
         imagenes_proc.append(proc)
         pasos_por_pagina.append(pasos)
+        recortes.append(recorte)
     tiempos["preprocesado"] = int((time.perf_counter() - t0) * 1000)
     doc.imagenes_procesadas = imagenes_proc
 
@@ -69,6 +73,7 @@ def procesar_bytes(
             pagina.numero = i + 1
             pagina.motor = motor_usado
             pagina.pasos_preprocesado = pasos_por_pagina[i]
+            pagina.recorte = recortes[i]
             for p in pagina.palabras:
                 p.pagina = i + 1
             paginas.append(pagina)

@@ -35,6 +35,8 @@ class PaginaOCR(BaseModel):
     alto: int = 0
     pasos_preprocesado: list[str] = Field(default_factory=list)
     motor: Optional[str] = None  # motor que leyó la página (paddle/doctr/tesseract/pdf-nativo)
+    # cómo se recortó/enderezó la página antes del OCR (docs/13 §1.3): aplicado, origen, esquinas, relacion...
+    recorte: Optional[dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------- Plantillas

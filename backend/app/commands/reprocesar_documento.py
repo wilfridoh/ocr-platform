@@ -45,6 +45,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
     from ..dominio.modelos import CampoExtraidoDTO, Clasificacion
     from ..pipeline import clasificador as clasificador_mod
     from ..pipeline import ensamblador as ensamblador_mod
+    from ..pipeline import posiciones
     from ..pipeline.extractor import extraer_campos
     from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
     from ._convertir import campos_de_version
@@ -120,6 +121,8 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
             tiempos_ms=resultado.tiempos_ms,
             motor_ocr=motor_usado,
             campos=[c.model_dump() for c in campos_dto],
+            palabras_json=posiciones.palabras_json(paginas),
+            recorte_json=posiciones.recorte_json(paginas),
         )
         # documento de un flujo de captura sin plantilla aplicable: NO_COINCIDE (igual que al procesarlo)
         sin_coincidencia = documento.FlujoCapturaId is not None and plantilla_forzada is None and clasificacion.tipo == "desconocido"
