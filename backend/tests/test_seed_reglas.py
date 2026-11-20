@@ -118,6 +118,7 @@ def test_migraciones_coinciden_con_el_seed_y_son_ascii():
         "migracion_003_reglas_cedula_ecuador.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
         "migracion_004_cedula_ciudadania.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
         "migracion_006_cedula_robusta.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
+        "migracion_007_cedula_nui_tolerante.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
     }
     for nombre, patron in patrones.items():
         sql = (base / nombre).read_text(encoding="utf-8")

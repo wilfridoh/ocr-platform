@@ -42,6 +42,11 @@ def _confianza_region(palabras: list[PalabraOCR], texto_buscado: str) -> float:
         return 0.5
     objetivo = _normaliza(texto_buscado)
     coincidentes = [p.confianza for p in palabras if _normaliza(p.texto) and _normaliza(p.texto) in objetivo]
+    if not coincidentes and len(objetivo) >= 4:
+        # El valor va PEGADO a su etiqueta en una sola palabra del OCR ("NUI.1234567890"): ninguna palabra cabe
+        # dentro del valor, pero el valor sí está dentro de una palabra. Sin esto la confianza caía a 0,5 y un campo
+        # bien leído pedía segunda opinión (lenta) sin necesidad.
+        coincidentes = [p.confianza for p in palabras if objetivo in _normaliza(p.texto)]
     if not coincidentes:
         return 0.5
     return sum(coincidentes) / len(coincidentes)

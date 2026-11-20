@@ -160,7 +160,7 @@ BEGIN
 
     INSERT INTO dbo.CampoPlantilla (PlantillaVersionId, Nombre, Etiqueta, TipoDato, Obligatorio, Metodo, ReglaJson, Orden) VALUES
         (@VersionId, 'numero_documento', 'Número de documento', 'cedula', 1, 'regex',
-            N'{"metodo":"regex","regex":"(?i)(?:\\bcc\\s*N[:.]?\\s*(\\d{10})\\b|DOCUMENTO\\s*:?\\s*([\\d.-]{6,})|DOCUMENTO[\\s\\S]{0,60}?\\b(\\d{10})\\b|(?<!\\d)(\\d{9}\\s*-\\s*\\d)(?!\\d)|\\bNUI\\W{0,3}(\\d{9}-?\\d)\\b)"}', 1),
+            N'{"metodo":"regex","regex":"(?i)(?:\\bcc\\s*N[:.]?\\s*(\\d{10})\\b|DOCUMENTO\\s*:?\\s*([\\d.-]{6,})|DOCUMENTO[\\s\\S]{0,60}?\\b(\\d{10})\\b|(?<!\\d)(\\d{9}\\s*-\\s*\\d)(?!\\d)|\\bNU[I1L|!]\\W{0,3}(\\d{9}-?\\d)\\b)"}', 1),
         (@VersionId, 'nombres', 'Nombres', 'texto', 1, 'ancla',
             N'{"metodo":"ancla","ancla":"Nombres","regex":"[^\\n]+"}', 2),
         (@VersionId, 'apellidos', 'Apellidos', 'texto', 1, 'ancla',

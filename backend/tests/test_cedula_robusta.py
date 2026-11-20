@@ -1,5 +1,5 @@
 """Iteración «robustecer cédula»: variantes reales de cédula ecuatoriana leídas por OCR. Datos inventados."""
-from app.dominio.modelos import PaginaOCR
+from app.dominio.modelos import PaginaOCR, PalabraOCR
 from app.pipeline.clasificador import PlantillaCandidata, clasificar
 from app.pipeline.extractor import extraer_campos
 from tests.test_seed_reglas import _campos, _palabras_clave_seed
@@ -36,6 +36,16 @@ NUI.1234567890
 def _extraer(texto: str) -> dict:
     pagina = PaginaOCR(numero=1, texto=texto, confianza_media=0.9, ancho=1000, alto=700)
     return {c.nombre: c for c in extraer_campos(_campos("cedula_identidad"), [pagina])}
+
+
+def _pagina_con_palabras(texto: str, confianza: float = 0.97) -> PaginaOCR:
+    """Página como la entrega el OCR real: además del texto, cada palabra con su confianza."""
+    palabras = [
+        PalabraOCR(texto=palabra, x=10 * j, y=20 * i, ancho=9, alto=18, confianza=confianza, linea=i, bloque=0)
+        for i, linea in enumerate(texto.splitlines())
+        for j, palabra in enumerate(linea.split())
+    ]
+    return PaginaOCR(numero=1, texto=texto, palabras=palabras, confianza_media=confianza, ancho=1000, alto=700)
 
 
 def _clasificar(texto: str):
@@ -93,6 +103,35 @@ def test_fecha_nacimiento_sin_etiqueta_no_inventa_con_fechas_futuras_o_de_vencim
     assert _extraer("FECHA DE VENCIMIENTO\n03 OCT 2020")["fecha_nacimiento"].valor is None
     assert _extraer("APELLIDOS\nPEREZ\n03 OCT 2036")["fecha_nacimiento"].valor is None
     assert _extraer("APELLIDOS\nPEREZ\n16 OCT 1290")["fecha_nacimiento"].valor is None  # año mal leído: no se adivina
+
+
+def test_numero_con_la_etiqueta_nui_mal_leida_por_el_ocr():
+    # rendimiento: Paddle lee "NUI" como "NU1"; si el número queda vacío se dispara la segunda opinión (lenta)
+    for etiqueta in ("NUI.", "NU1.", "NUl.", "NU|.", "NU!", "NU1 ", "nui: "):
+        pagina = _pagina_con_palabras(TEXTO_CEDULA_NUEVA.replace("NUI.", etiqueta))
+        r = {c.nombre: c for c in extraer_campos(_campos("cedula_identidad"), [pagina])}
+        assert r["numero_documento"].valor == "1234567890", etiqueta
+        # el número va pegado a la etiqueta en una sola palabra del OCR: aun así toma la confianza de esa palabra
+        assert r["numero_documento"].confianza >= 0.9, etiqueta
+    # una palabra cualquiera terminada en "nu1"/"nui" pegada a otra cosa no es la etiqueta
+    assert _extraer("APELLIDOS\nPEREZ\nMENU1234567890")["numero_documento"].valor is None
+
+
+def test_cedula_bien_leida_no_pide_segunda_opinion():
+    from app.pipeline.extractor import extraer_campos as extraer
+
+    llamadas = []
+
+    def segunda_opinion():
+        llamadas.append(1)
+        return None
+
+    pagina = _pagina_con_palabras(TEXTO_CEDULA_NUEVA.replace("NUI.", "NU1."))
+    campos = extraer(_campos("cedula_identidad"), [pagina], segunda_opinion, 0.7)
+    assert llamadas == [], [(c.nombre, c.confianza) for c in campos if c.confianza < 0.7]
+    # y si de verdad falta un campo, sí se pide
+    extraer(_campos("cedula_identidad"), [_pagina_con_palabras(TEXTO_CEDULA_NUEVA.replace("NUI.1234567890", ""))], segunda_opinion, 0.7)
+    assert llamadas == [1]
 
 
 def test_campo_sin_valor_no_toma_el_valor_del_campo_siguiente():

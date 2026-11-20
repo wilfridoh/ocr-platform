@@ -248,6 +248,21 @@ curl -X POST http://localhost:8000/api/purga -H "X-API-Key: <clave-admin>" \
 
 Los scripts completos usados para generar las imágenes sintéticas (`qa_assets.py`, `make_pdf_nativo.py`) y para ejecutar el lote de escenarios contra la API real (`qa_run.py`, `qa_rendimiento.py`) quedaron en el scratchpad de la sesión de QA; se puede pedir una copia si otro equipo quiere repetir exactamente las mismas pruebas.
 
-## 11. Limpieza al cierre
+## 12. Actualización — fix de rendimiento validado (2026-11-20, mismo día)
+
+Desarrollo OCR cerró la observación #1 de §6 (la segunda opinión doctr dominando la latencia). Causa real: Paddle a veces lee la etiqueta "NUI" como "NU1"/"NUl"/etc. (`numero_documento` quedaba vacío) y, aun cuando el número se leía bien pero pegado a su etiqueta en una sola palabra del OCR, la función de confianza no lo detectaba y devolvía 0,5 — ambos casos disparaban innecesariamente la segunda opinión en una cédula nítida. Cambios: `db/migracion_007_cedula_nui_tolerante.sql` (etiqueta tolerante a NUI/NU1/NUL/NU|/NU!) y un ajuste general en `_confianza_region` (extractor.py) para valores pegados a su etiqueta.
+
+Validado por QA: pytest 215/215, migración aplicada e idempotente, overlay de código contra el stack real. La imagen original del §4 no servía para medir la mejora completa porque le faltaba por diseño el campo `fecha_vencimiento` (disparaba la segunda opinión por una razón real, no por el bug); con una cédula sintética con los 7 campos presentes:
+
+| Métrica | Antes | Después |
+|---|---|---|
+| 1 subida aislada | 14.856 ms | **3.218 ms** |
+| `extraccion` (desglose) | 12.862 ms | **2 ms** |
+| 4 concurrentes (promedio / peor) | 40.330 / 51.905 ms | **7.577 / 11.040 ms** |
+| 8 concurrentes (promedio / peor) | 57.091 / 74.976 ms | **14.678 / 22.629 ms** |
+
+~4,6× más rápido en el caso aislado; la mejora se mantiene bajo concurrencia. Confirmado que un campo realmente ausente sigue disparando la segunda opinión (sin regresión de precisión), y que las confianzas de `planilla_servicio` y `cuenta_contrato` no cambiaron (sin efecto colateral del ajuste general de confianza). Documentos de prueba de esta validación, purgados.
+
+## 13. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.
