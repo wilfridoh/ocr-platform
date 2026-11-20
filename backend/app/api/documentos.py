@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..almacen import AlmacenDisco
+from ..commands.errores import DocumentoPurgado
 from ..commands.procesar_documento import PlantillaForzadaNoExiste, procesar_documento
 from ..commands.reprocesar_documento import DocumentoNoExiste, reprocesar_documento
 from ..config import Settings, get_settings
@@ -43,6 +44,8 @@ async def subir_documento(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except PlantillaForzadaNoExiste as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except DocumentoPurgado as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{e}. Vuelve a subirlo.") from e
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 

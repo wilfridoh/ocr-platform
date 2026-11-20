@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import time
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 
 from ..almacen import AlmacenDisco
 from ..dominio.modelos import CampoExtraidoDTO, Clasificacion, PlantillaDTO, ResultadoDTO
@@ -14,6 +16,7 @@ from ..pipeline.ingesta import ErrorIngesta, extension_de
 from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
 from ..persistencia import repositorios as repo
 from ._convertir import campos_de_version, palabras_clave_de_version
+from .errores import DocumentoPurgado  # noqa: F401  (reexportado)
 
 
 class PlantillaForzadaNoExiste(ValueError):
@@ -44,7 +47,7 @@ def _plantillas_candidatas(
     return candidatas
 
 
-def procesar_documento(
+def _procesar_documento(
     db: Session,
     almacen: AlmacenDisco,
     settings,
@@ -160,10 +163,29 @@ def procesar_documento(
         )
         return documento.DocumentoId, resultado
     except ErrorPipeline as e:
+        db.rollback()
         repo.actualizar_estado_documento(db, documento, "ERROR", str(e))
         repo.registrar_log(db, documento.DocumentoId, "ocr", "ERROR", str(e))
         raise
     except Exception as e:  # noqa: BLE001
+        db.rollback()  # si la purga borró el documento, aquí salta ObjectDeleted/StaleData y lo traduce el envoltorio
         repo.actualizar_estado_documento(db, documento, "ERROR", str(e))
         repo.registrar_log(db, documento.DocumentoId, "pipeline", "ERROR", str(e))
+        raise
+
+
+def procesar_documento(*args, **kwargs) -> tuple[str, ResultadoDTO]:
+    """Procesa y persiste un documento (ver `_procesar_documento`). Si una purga lo elimina a mitad de camino
+    (datos de la BD que cambian bajo los pies de esta sesión) se lanza DocumentoPurgado, no un error interno."""
+    db: Session = args[0]
+    try:
+        return _procesar_documento(*args, **kwargs)
+    except (StaleDataError, ObjectDeletedError) as e:
+        db.rollback()
+        raise DocumentoPurgado("El documento se eliminó mientras se procesaba (puede que se haya purgado)") from e
+    except IntegrityError as e:
+        db.rollback()
+        # una FK rota al guardar el resultado de un documento que ya no existe es la misma carrera con la purga
+        if "FOREIGN KEY" in str(getattr(e, "orig", e)).upper():
+            raise DocumentoPurgado("El documento se eliminó mientras se procesaba (puede que se haya purgado)") from e
         raise

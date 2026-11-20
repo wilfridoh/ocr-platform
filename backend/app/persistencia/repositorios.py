@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm.exc import ObjectDeletedError
 
 from ..dominio.modelos import PlantillaCrear
 from . import modelos as m
@@ -162,8 +164,18 @@ def crear_documento(
     )
     db.add(doc)
     db.commit()
-    db.refresh(doc)
+    _refrescar_documento(db, doc)
     return doc
+
+
+def _refrescar_documento(db: Session, documento: m.Documento) -> None:
+    """db.refresh() sobre una fila que otra sesión acaba de borrar (p. ej. una purga) lanza InvalidRequestError
+    ("Could not refresh instance"). Se traduce a ObjectDeletedError, que los comandos ya reconocen como
+    «el documento dejó de existir» y los endpoints convierten en 404/409 en lugar de un 500."""
+    try:
+        db.refresh(documento)
+    except InvalidRequestError as e:
+        raise ObjectDeletedError(inspect(documento)) from e
 
 
 def obtener_documento(db: Session, documento_id: str) -> m.Documento | None:
@@ -178,7 +190,7 @@ def actualizar_estado_documento(
     if estado in ("COMPLETADO", "ERROR", "NO_COINCIDE"):
         documento.ProcesadoEn = _utcnow()
     db.commit()
-    db.refresh(documento)
+    _refrescar_documento(db, documento)
     return documento
 
 

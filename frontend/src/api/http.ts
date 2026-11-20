@@ -85,6 +85,8 @@ function mensajePublico(status: number, detalle: string | undefined, reintentarE
     case 401:
     case 404:
       return 'Este punto de captura no está disponible. Revisa el enlace o pide uno nuevo a quien te lo envió.'
+    case 409:
+      return 'No pudimos guardar tu documento. Vuelve a subirlo.'
     case 413:
       return 'El archivo es demasiado pesado. Prueba con una foto o un archivo más liviano.'
     case 429:

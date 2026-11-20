@@ -5,7 +5,7 @@ import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictBool
 from sqlalchemy.orm import Session
 
 from ..almacen import AlmacenDisco
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/purga", tags=["purga de documentos"])
 class PurgaEntrada(BaseModel):
     alcance: Literal["vencidos", "todos"]
     # Salvaguarda: borrar es irreversible, la petición debe decir explícitamente que se confirma
-    confirmar: bool = False
+    confirmar: StrictBool = False  # solo el booleano real (no "true"/1): evita confirmaciones accidentales
 
 
 @router.get("")

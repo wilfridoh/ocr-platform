@@ -1,7 +1,9 @@
 """Comando: reprocesar un documento ya existente (releer su archivo del almacén)."""
 from __future__ import annotations
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import ObjectDeletedError, StaleDataError
 
 from ..almacen import AlmacenDisco
 from ..dominio.modelos import ResultadoDTO
@@ -21,10 +23,20 @@ def reprocesar_documento(
     documento = repo.obtener_documento(db, documento_id)
     if not documento:
         raise DocumentoNoExiste(f"El documento {documento_id} no existe")
-    datos = almacen.leer(documento.RutaAlmacen)
+    try:
+        datos = almacen.leer(documento.RutaAlmacen)
+    except FileNotFoundError as e:
+        raise DocumentoNoExiste(f"El archivo original del documento {documento_id} ya no existe (puede que se haya purgado)") from e
     plantilla_id = plantilla_id if plantilla_id is not None else documento.PlantillaForzadaId
     # Reutiliza el mismo DocumentoId: se actualiza en lugar de crear uno nuevo.
-    return _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id)
+    try:
+        return _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id)
+    except (StaleDataError, ObjectDeletedError, IntegrityError) as e:
+        # Carrera con la purga: el documento se borró entre que se cargó y que se guardó el resultado.
+        db.rollback()
+        if repo.obtener_documento(db, documento_id) is None:
+            raise DocumentoNoExiste(f"El documento {documento_id} ya no existe (puede que se haya purgado)") from e
+        raise
 
 
 def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id):

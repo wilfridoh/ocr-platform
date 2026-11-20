@@ -227,3 +227,142 @@ def test_el_hilo_de_purga_solo_arranca_si_esta_habilitado():
         purga_automatica.detener()
     assert Settings.model_fields["DOC_PURGA_AUTOMATICA"].default is False
     assert Settings.model_fields["DOC_RETENCION_DIAS"].default == 30
+
+
+# ------------------------------------------------------------------ carreras con la purga (hallazgo de QA)
+def _borrar_antes_de(monkeypatch, estado_objetivo: str):
+    """Simula que una purga borra el documento JUSTO antes de que otra operación lo actualice a `estado_objetivo`."""
+    from sqlalchemy import delete
+
+    from app.persistencia import repositorios as repo
+
+    original = repo.actualizar_estado_documento
+
+    def con_borrado(db, documento, estado, mensaje_error=None):
+        if estado == estado_objetivo:
+            # como lo haría otra sesión/conexión: esta sesión sigue creyendo que el documento existe
+            db.execute(delete(m.Documento).where(m.Documento.DocumentoId == documento.DocumentoId), execution_options={"synchronize_session": False})
+            db.commit()  # la purga real confirma su borrado en otra conexión: aquí también queda confirmado
+        return original(db, documento, estado, mensaje_error)
+
+    monkeypatch.setattr(repo, "actualizar_estado_documento", con_borrado)
+
+
+def test_reprocesar_un_documento_purgado_a_mitad_es_404_limpio_no_500(client, monkeypatch):  # noqa: F811
+    doc_id = _doc_api(get_settings().ALMACEN_RUTA, "carrera.png", 1)
+    _borrar_antes_de(monkeypatch, "PROCESANDO")
+    r = client.post(f"/api/documentos/{doc_id}/reprocesar", headers=ADMIN)
+    assert r.status_code == 404 and "ya no existe" in r.json()["detail"]
+    assert client.get(f"/api/documentos/{doc_id}", headers=ADMIN).status_code == 404
+
+
+def test_reprocesar_si_el_archivo_original_ya_no_esta_es_404(client):  # noqa: F811
+    s = get_settings()
+    doc_id = _doc_api(s.ALMACEN_RUTA, "huerfano.png", 1)
+    for f in AlmacenDisco(s.ALMACEN_RUTA).raiz.rglob("*.png"):
+        f.unlink()
+    r = client.post(f"/api/documentos/{doc_id}/reprocesar", headers=ADMIN)
+    assert r.status_code == 404 and "purgado" in r.json()["detail"]
+
+
+def test_subir_mientras_se_purga_es_409_para_volver_a_subir(client, planilla_sintetica, monkeypatch):  # noqa: F811
+    from tests.conftest import imagen_a_bytes
+    from tests.test_api import _tesseract_disponible
+
+    if not _tesseract_disponible():
+        pytest.skip("Tesseract no disponible en este entorno")
+    _borrar_antes_de(monkeypatch, "COMPLETADO")
+    datos = imagen_a_bytes(planilla_sintetica, "PNG")
+    r = client.post("/api/documentos", files={"archivo": ("p.png", datos, "image/png")}, headers=ADMIN)
+    assert r.status_code == 409 and "Vuelve a subirlo" in r.json()["detail"]
+
+
+def test_subir_por_un_flujo_mientras_se_purga_tambien_es_409(client, planilla_sintetica, monkeypatch):  # noqa: F811
+    from tests.conftest import imagen_a_bytes
+    from tests.test_api import _DEF_BASICA, _tesseract_disponible
+
+    if not _tesseract_disponible():
+        pytest.skip("Tesseract no disponible en este entorno")
+    pid = client.post("/api/plantillas", json=_DEF_BASICA, headers=ADMIN).json()["id"]
+    client.post("/api/flujos-captura", json={"codigo": "f", "nombre": "F", "plantilla_ids": [pid]}, headers=ADMIN)
+    _borrar_antes_de(monkeypatch, "COMPLETADO")
+    datos = imagen_a_bytes(planilla_sintetica, "PNG")
+    r = client.post("/api/flujos-captura/f/documentos", files={"archivo": ("p.png", datos, "image/png")}, headers=ADMIN)
+    assert r.status_code == 409
+
+
+def test_todos_no_borra_lo_que_se_esta_procesando_ahora_mismo(db, almacen):
+    recien_llegado = _doc(db, almacen, "recibido.png", 0)
+    recien_llegado.Estado = "RECIBIDO"
+    procesando = _doc(db, almacen, "procesando.png", 0)
+    procesando.Estado = "PROCESANDO"
+    atascado = _doc(db, almacen, "atascado.png", 0)
+    atascado.Estado = "PROCESANDO"
+    atascado.RecibidoEn = _hace(0) - timedelta(hours=3)  # lleva horas «procesando»: se considera atascado
+    _doc(db, almacen, "listo.png", 0)
+    db.commit()
+    ids_en_curso = {recien_llegado.DocumentoId, procesando.DocumentoId}
+    r = cmd.purgar(db, almacen, "todos", 30)
+    assert r.documentos == 2  # el atascado y el completado
+    assert {d.DocumentoId for d in db.execute(select(m.Documento)).scalars()} == ids_en_curso
+
+
+def test_confirmar_exige_el_booleano_real(client, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(get_settings(), "DOC_RETENCION_DIAS", 30)
+    _doc_api(get_settings().ALMACEN_RUTA, "x.png", 90)
+    for valor in ("true", "TRUE", 1, "1", "yes"):
+        r = client.post("/api/purga", json={"alcance": "vencidos", "confirmar": valor}, headers=ADMIN)
+        assert r.status_code == 422, valor
+    assert client.get("/api/purga", headers=ADMIN).json()["vencidos"]["documentos"] == 1  # nada se borró
+    assert client.post("/api/purga", json={"alcance": "vencidos", "confirmar": True}, headers=ADMIN).json()["documentos"] == 1
+
+
+# ------------------------------------------------------------------ carrera en db.refresh() (re-verificación de QA contra SQL Server)
+def test_refrescar_un_documento_cuya_fila_ya_no_existe_es_ObjectDeletedError(db, almacen):
+    """QA: contra SQL Server `db.refresh()` sobre una fila purgada lanza InvalidRequestError, que se escapaba como 500."""
+    from sqlalchemy import delete
+    from sqlalchemy.orm.exc import ObjectDeletedError
+
+    from app.persistencia import repositorios as repo
+
+    d = _doc(db, almacen, "x.png", 0)
+    db.execute(delete(m.Documento).where(m.Documento.DocumentoId == d.DocumentoId), execution_options={"synchronize_session": False})
+    db.commit()
+    with pytest.raises(ObjectDeletedError):
+        repo.actualizar_estado_documento(db, d, "PROCESANDO")
+
+
+def _refresh_que_falla_porque_la_purga_borro_la_fila(monkeypatch):
+    """Reproduce el fallo exacto de QA: el UPDATE/commit sale bien, la purga borra la fila y el refresh posterior falla."""
+    from sqlalchemy import delete
+    from sqlalchemy.exc import InvalidRequestError
+
+    original = Session.refresh
+
+    def refresh(self, instance, *a, **k):
+        if isinstance(instance, m.Documento):
+            self.execute(delete(m.Documento).where(m.Documento.DocumentoId == instance.DocumentoId), execution_options={"synchronize_session": False})
+            self.commit()
+            raise InvalidRequestError("Could not refresh instance")
+        return original(self, instance, *a, **k)
+
+    monkeypatch.setattr(Session, "refresh", refresh)
+
+
+def test_reprocesar_con_el_refresh_fallando_es_404_no_500(client, monkeypatch):  # noqa: F811
+    doc_id = _doc_api(get_settings().ALMACEN_RUTA, "carrera2.png", 1)
+    _refresh_que_falla_porque_la_purga_borro_la_fila(monkeypatch)
+    r = client.post(f"/api/documentos/{doc_id}/reprocesar", headers=ADMIN)
+    assert r.status_code == 404 and "ya no existe" in r.json()["detail"]
+
+
+def test_subir_con_el_refresh_fallando_es_409_no_500(client, planilla_sintetica, monkeypatch):  # noqa: F811
+    """Mismo patrón en el tramo de crear el documento (fuera del try de procesar_documento)."""
+    from tests.conftest import imagen_a_bytes
+    from tests.test_api import _tesseract_disponible
+
+    if not _tesseract_disponible():
+        pytest.skip("Tesseract no disponible en este entorno")
+    _refresh_que_falla_porque_la_purga_borro_la_fila(monkeypatch)
+    r = client.post("/api/documentos", files={"archivo": ("p.png", imagen_a_bytes(planilla_sintetica, "PNG"), "image/png")}, headers=ADMIN)
+    assert r.status_code == 409 and "Vuelve a subirlo" in r.json()["detail"]

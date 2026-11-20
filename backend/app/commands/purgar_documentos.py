@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, not_, select, update
 from sqlalchemy.orm import Session
 
 from ..almacen import AlmacenDisco
@@ -48,9 +48,16 @@ def _limite(retencion_dias: int, ahora: datetime | None = None) -> datetime:
     return ((ahora or datetime.now(timezone.utc)) - timedelta(days=retencion_dias)).replace(tzinfo=None)
 
 
+def _limite_horas(horas: int, ahora: datetime | None = None) -> datetime:
+    return ((ahora or datetime.now(timezone.utc)) - timedelta(hours=horas)).replace(tzinfo=None)
+
+
 def _condicion(alcance: Alcance, retencion_dias: int, ahora: datetime | None):
     if alcance == "todos":
-        return None  # sin filtro
+        # Todo, EXCEPTO lo que se está recibiendo o procesando ahora mismo (última hora): purgarlo a mitad de camino
+        # rompería esa subida. Lo que quedó «atascado» más de una hora sí entra.
+        en_curso = and_(m.Documento.Estado.in_(("RECIBIDO", "PROCESANDO")), m.Documento.RecibidoEn >= _limite_horas(1, ahora))
+        return not_(en_curso)
     if retencion_dias <= 0:
         raise PurgaNoDisponible("La retención automática está desactivada (DOC_RETENCION_DIAS = 0)")
     return m.Documento.RecibidoEn < _limite(retencion_dias, ahora)

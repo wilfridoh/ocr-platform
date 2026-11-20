@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from ..almacen import AlmacenDisco
 from ..commands import flujos_captura as cmd
+from ..commands.errores import DocumentoPurgado
 from ..commands.procesar_documento import procesar_documento
 from ..config import Settings, get_settings
 from ..dominio.flujos import (
@@ -248,6 +249,8 @@ async def procesar_con_flujo(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except HTTPException:
         raise
+    except DocumentoPurgado as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{e}. Vuelve a subirlo.") from e
     except Exception as e:  # noqa: BLE001
         logger.exception("Error procesando documento del flujo %s", codigo)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e) if not anonimo else "No se pudo procesar el documento") from e
