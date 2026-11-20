@@ -109,6 +109,14 @@ Columnas nuevas en `Resultado`:
 | `RecorteJson NVARCHAR(MAX) NULL` | Por página guarda solo hechos: `{aplicado, origen: "automatico"\|"manual"\|"ninguno"\|"pdf", esquinas, relacion, orientacion, deskew}`. Las `esquinas` son las 4, relativas a la imagen original. `recorte_confiable` **se calcula al leer**, comparando `relacion` con el formato de la plantilla, y no se guarda. |
 | `CoincidenciaJson NVARCHAR(MAX) NULL` | El bloque `coincidencia` del resultado (§3.3). Llega en la entrega 4, con su propia migración. |
 
+**Implementado en la entrega 2:** `PlantillaVersion.DisenoJson` (migración 010), `ReglaCampo.zona_etiqueta` y
+`diseno` en el DTO de plantilla.
+- **Dónde va `diseno`:** al nivel de la plantilla, igual que `umbral_confianza`, pero se guarda por versión.
+- **Endpoints del editor:** `enderezada`, `palabras` y `recorte` (§7).
+- **Reprocesar** conserva el recorte manual.
+- **`X-Recorte-Confiable` sin proporción esperada** (`?relacion=` ni diseño en la plantilla) vale `true` solo si
+  hubo recorte, automático o manual.
+
 **Implementado en la entrega 1:** `PalabrasJson` y `RecorteJson`, con la migración 009. El formato compacto está en
 `pipeline/posiciones.py` y en docs/04 §4.6.
 
@@ -427,7 +435,7 @@ Orden sugerido:
 
 | Endpoint | Cambio |
 |---|---|
-| `GET /api/documentos/{id}/paginas/{n}/enderezada` | **Nuevo.** PNG de la tarjeta recortada, enderezada y horizontal, en color. Cabeceras `X-Recorte-Confiable: true\|false`, `X-Recorte-Origen` y `X-Orientacion`. Sin recorte fiable devuelve la página original (para el aviso ámbar y el ajuste de esquinas). |
+| `GET /api/documentos/{id}/paginas/{n}/enderezada` | **Nuevo.** PNG (o JPEG calidad 90 con `?formato=jpeg`, para móvil) de la tarjeta recortada, enderezada y horizontal, en color. Cabeceras `X-Recorte-Confiable: true\|false`, `X-Recorte-Origen` y `X-Orientacion`. Sin recorte fiable devuelve la página original (para el aviso ámbar y el ajuste de esquinas). |
 | `GET /api/documentos/{id}/paginas/{n}/palabras` | **Nuevo.** `{recorte: {confiable, origen, esquinas, orientacion, relacion}, palabras: [{texto, x, y, ancho, alto, confianza}]}`, relativas a la imagen enderezada. Alimenta el "Lee: …" del panel. 404 si el documento es anterior al cambio. |
 | `POST /api/documentos/{id}/paginas/{n}/recorte` | **Nuevo.** Cuerpo: `{esquinas: [[x,y]×4], orientacion?: 0\|90\|180\|270}`, con las esquinas relativas a la imagen original. `orientacion` sirve para el «Girar 90°» manual que pidió UX. Valida, guarda (`origen: "manual"`) y reprocesa con esas esquinas. Devuelve el resultado; la imagen se vuelve a pedir a `…/enderezada`. |
 | `GET/PUT /api/plantillas/{id}` | `version.diseno` (§1.2) y `campo.regla.zona_etiqueta` (§1.1). La zona de valor usa `x, y, ancho, alto` de la regla. Guardar crea una versión nueva. |

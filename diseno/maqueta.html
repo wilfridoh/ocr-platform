@@ -1011,12 +1011,14 @@ function zDoc(o={}){
 }
 
 /* ---------- vista principal ---------- */
-function zSkel(){return `<div class="zskel"><div class="sk"></div><span>${ic('refresh',16)} Preparando la imagen enderezada de la tarjeta… (1–2 s)</span></div>`}
+function zSkel(m){return `<div class="zskel"><div class="sk"></div><span>${ic('refresh',16)} ${m||'Preparando la imagen enderezada de la tarjeta…'}</span></div>`}
+const Z422='Las esquinas no forman un cuadrilátero convexo en el orden: arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda.';
 function zBanner(){
-  if(ZG.estado==='antiguo')return `<div class="alert info" style="margin-bottom:14px">${ic('info',20)}<div><b>Este documento no tiene posiciones guardadas</b>Se procesó antes de esta función. Puedes marcar celdas igual, pero no se proponen palabras al hacer clic. Reprocésalo para verlas.</div><button class="btn sm" style="margin-left:auto;background:#fff" onclick="setZE('normal');toast('Reprocesando…')">${ic('refresh',14)}Reprocesar documento</button></div>`;
+  if(ZG.rec)return '';
+  if(ZG.estado==='antiguo')return `<div class="alert info" style="margin-bottom:14px">${ic('info',20)}<div><b>Este documento no tiene posiciones guardadas</b>Se procesó antes de esta función. Puedes marcar celdas igual, pero no se proponen palabras al hacer clic.</div><button class="btn sm" style="margin-left:auto;background:#fff" onclick="setZE('normal');toast('Reprocesando…')">${ic('refresh',14)}Reprocesar para ver posiciones</button></div>`;
   if(ZG.estado!=='norecorte')return '';
   if(ZG.conf)return `<div class="chip warn" style="margin-bottom:12px">${ic('alert',12)}Recorte sin verificar</div>`;
-  return `<div class="alert warn" style="margin-bottom:14px">${ic('alert',20)}<div><b>No pudimos detectar los bordes de la tarjeta con fiabilidad</b>La imagen parece inclinada o tiene fondo claro, así que la cuadrícula podría no alinearse. Ajusta las cuatro esquinas o vuelve a subir la foto sobre un fondo oscuro.</div>
+  return (ZG.err?`<div class="alert err" style="margin-bottom:10px" role="alert">${ic('alert',20)}<div><b>No se pudo aplicar el recorte</b>${ZG.err}</div></div>`:'')+`<div class="alert warn" style="margin-bottom:14px">${ic('alert',20)}<div><b>No pudimos detectar los bordes de la tarjeta con fiabilidad</b>La imagen parece inclinada o tiene fondo claro, así que la cuadrícula podría no alinearse. Ajusta las cuatro esquinas o vuelve a subir la foto sobre un fondo oscuro.</div>
    <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">${ZG.esq?`<button class="btn pri sm" id="zconf">${ic('check',14)}Confirmar recorte</button>`:`<button class="btn sm" id="zesq" style="background:#fff">${ic('target',14)}Ajustar esquinas</button>`}<button class="btn sm" id="zgir" style="background:#fff">${ic('refresh',14)}Girar 90°${ZG.rot?` · ${ZG.rot}°`:''}</button><button class="btn gh sm" id="zusar">Usar de todos modos</button></span></div>`;
 }
 V.zonas=()=>{
@@ -1024,7 +1026,7 @@ V.zonas=()=>{
   const m=ZG.modo;
   return `<div class="crumb"><a href="#/plantillas">Plantillas</a> / <a href="#/plantillas/nueva/3">Nueva plantilla · Campos</a> / Cuadrícula</div>
   <div class="ph"><div><h1>Mapear campos por posición</h1><p>Marca qué celdas ocupa cada dato. Sirve para leer valores por posición y para comprobar que un documento coincide con la plantilla.</p></div>
-   <div style="display:flex;gap:8px"><a class="btn" href="#/plantillas/nueva/3">Volver a campos</a><button class="btn pri" onclick="toast('Zonas guardadas en la plantilla')" ${ZG.zones.length?'':'disabled'}>${ic('check')}Guardar zonas</button></div></div>
+   <div style="display:flex;gap:8px;align-items:center"><span class="chip" title="Origen del recorte de la tarjeta">${ic('scan',12)}Recorte: ${ZG.estado==='norecorte'&&!ZG.verif?'no detectado':ZG.verif?'manual':ZG.estado==='antiguo'?'desconocido':'automático'}</span><a class="btn" href="#/plantillas/nueva/3">Volver a campos</a><button class="btn pri" onclick="toast('Zonas guardadas en la plantilla')" ${ZG.zones.length?'':'disabled'}>${ic('check')}Guardar zonas</button></div></div>
   <div class="tabs"><button data-zm="mapear" class="${m==='mapear'?'on':''}">Mapear</button><button data-zm="validar" class="${m==='validar'?'on':''}">Validar un documento</button></div>
   ${zBanner()}${m==='mapear'?zMapear():zValidar()}`;
 };
@@ -1057,7 +1059,7 @@ function zMapear(){
     <button class="btn sm hidem" id="zun" ${ZG.hist.length?'':'disabled'}>${ic('undo',14)}Deshacer</button>
     <label class="toggle touchonly"><button class="sw ${ZG.dibujo?'on':''}" id="zdib" role="switch" aria-label="Modo dibujo táctil"></button>Modo dibujo (táctil)</label>
     <span class="muted" id="zread" style="margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums">${C} × ${R} celdas</span></div>
-    ${hint}<div class="zstage">${ZG.estado==='cargando'?zSkel():zDoc()}
+    ${hint}<div class="zstage">${ZG.rec?zSkel('Recortando… (unos segundos)'):ZG.estado==='cargando'?zSkel():zDoc()}
      ${ZG.estado==='sinzonas'||!ZG.zones.length?`<div class="zcoach">${ic('pen',14)}Arrastra para marcar las celdas del valor</div>`:''}</div>
     <div class="legend" style="flex-wrap:wrap"><span><i style="background:#4338CA"></i>Valor: dato a extraer</span><span><i style="background:repeating-linear-gradient(45deg,#4338CA 0 3px,#fff 3px 6px);border:1px solid #4338CA"></i>Etiqueta fija: texto impreso que valida la plantilla</span><span><i style="background:#D1D5DB"></i>Texto gris: lectura poco confiable (&lt; 70 %)</span></div></div>
    <div><div class="card"><div class="ch"><span>Campos y zonas</span><span class="chip br">${ZG.zones.length} zona${ZG.zones.length===1?'':'s'}</span></div>${lista}
@@ -1111,7 +1113,10 @@ V.zonas.after=r=>{
   const [C,R]=DENS[ZG.dens];
   $$('[data-zm]',b=>b.onclick=()=>{ZG.modo=b.dataset.zm;render()});
   const set=(id,fn)=>{const b=r.querySelector(id);if(b)b.onclick=fn};
-  set('#zesq',()=>{ZG.esq=true;render()});set('#zconf',()=>{ZG.conf=true;ZG.verif=true;ZG.esq=false;toast('Recorte confirmado');render()});
+  set('#zesq',()=>{ZG.esq=true;render()});set('#zconf',()=>{
+    if(ZG.e422){ZG.e422=false;ZG.err=Z422;render();return}   /* simula el 422 del servidor; el siguiente intento funciona */
+    ZG.err='';ZG.rec=true;render();
+    setTimeout(()=>{ZG.rec=false;ZG.conf=true;ZG.verif=true;ZG.esq=false;ZG.rot=0;toast('Recorte aplicado');render()},1800)});
   set('#zusar',()=>{ZG.conf=true;ZG.esq=false;render()});
   set('#zgir',()=>{ZG.rot=((ZG.rot||0)+90)%360;toast('Giro aplicado: '+ZG.rot+'°');render()});
   set('#zdif',()=>{ZG.dif=!ZG.dif;render()});
@@ -1172,7 +1177,8 @@ function zCommit(c0,r0,c1,r1){
   render();
 }
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&location.hash==='#/plantillas/zonas'&&ZG.hist.length){ZG.zones=JSON.parse(ZG.hist.pop());render()}});
-window.setZE=k=>{ZG.estado=k;ZG.conf=false;ZG.verif=false;ZG.esq=false;if(k==='sinzonas')ZG.zones=[];else if(!ZG.zones.length)ZG.zones=Z0();ZG.hist=[];render()};
+window.setZ422=()=>{ZG.estado='norecorte';ZG.conf=false;ZG.verif=false;ZG.esq=true;ZG.e422=true;ZG.err='';ZG.rec=false;if(!ZG.zones.length)ZG.zones=Z0();render()};
+window.setZE=k=>{ZG.estado=k;ZG.conf=false;ZG.verif=false;ZG.esq=false;ZG.e422=false;ZG.err='';ZG.rec=false;if(k==='sinzonas')ZG.zones=[];else if(!ZG.zones.length)ZG.zones=Z0();ZG.hist=[];render()};
 window.setZS=k=>{ZG.sc=k;render()};
 
 /* ---------- boceto: guía de encuadre previa a la cámara (cédula) ---------- */
@@ -1256,7 +1262,7 @@ function demoBar(r){
   const set=(arr,cur,fn)=>arr.map(([k,l])=>`<button class="${k===cur?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('');
   if(r.v==='procesar')return `<b>Estado</b>`+set([['vacio','Vacío'],['procesando','Procesando'],['completado','Completado'],['desconocido','Desconocido'],['error','Error']],estadoProc,'setP');
   if(r.v==='plantillas')return `<b>Estado</b>`+set([['datos','Con datos'],['vacio','Sin plantillas']],estadoPlant,'setL');
-  if(r.v==='zonas')return `<b>Estado</b>`+set([['normal','Con zonas'],['sinzonas','Sin zonas'],['norecorte','Sin recorte fiable'],['cargando','Cargando imagen'],['antiguo','Documento antiguo']],ZG.estado,'setZE')+(ZG.modo==='validar'?`<span class="sep"></span><b>Documento</b>`+set([['coincide','Coincide'],['parcial','Parcial'],['no','No coincide']],ZG.sc,'setZS'):'');
+  if(r.v==='zonas')return `<b>Estado</b>`+set([['normal','Con zonas'],['sinzonas','Sin zonas'],['norecorte','Sin recorte fiable'],['cargando','Cargando imagen'],['antiguo','Documento antiguo']],ZG.estado,'setZE')+`<button class="${ZG.e422?'on':''}" onclick="setZ422()">Esquinas inválidas</button>`+(ZG.modo==='validar'?`<span class="sep"></span><b>Documento</b>`+set([['coincide','Coincide'],['parcial','Parcial'],['no','No coincide']],ZG.sc,'setZS'):'');
   if(r.v==='captura')return `<b>Flujo</b>`+set([['alta_cliente_cedula','Cédula'],['regularizacion_servicios','Servicios'],['recepcion_contratos','Contratos']],CAP.flujo,'setCapF')+`<span class="sep"></span><b>Resultado</b>`+set([['ok','Correcto'],['nomatch','No coincide'],['error','Error']],CAP.escenario,'setCapE');
   return `<b>Maqueta navegable</b>`;
 }

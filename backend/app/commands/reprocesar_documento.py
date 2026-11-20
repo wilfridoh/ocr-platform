@@ -17,9 +17,33 @@ class DocumentoNoExiste(ValueError):
     pass
 
 
+class PaginaFueraDeRango(ValueError):
+    pass
+
+
+def recortes_manuales_guardados(documento: m.Documento) -> dict[int, dict]:
+    """Recortes que marcó una persona en un procesamiento anterior: reprocesar los conserva (no vuelve al automático)."""
+    from ..pipeline.posiciones import leer_recorte
+
+    resultado = documento.resultado
+    guardados = leer_recorte(resultado.RecorteJson if resultado else None)
+    return {
+        n: {"esquinas": r.get("esquinas"), "orientacion": r.get("orientacion") or 0}
+        for n, r in guardados.items()
+        if r.get("origen") == "manual" or r.get("orientacion")
+    }
+
+
 def reprocesar_documento(
-    db: Session, almacen: AlmacenDisco, settings, documento_id: str, plantilla_id: int | None = None
+    db: Session,
+    almacen: AlmacenDisco,
+    settings,
+    documento_id: str,
+    plantilla_id: int | None = None,
+    recorte_manual: tuple[int, dict] | None = None,
 ) -> tuple[str, ResultadoDTO]:
+    """`recorte_manual` = (numero_pagina, {"esquinas": [[x,y]x4] | None, "orientacion": 0|90|180|270}): recorte y/o
+    giro marcados por una persona para esa página (docs/13 §4.2). Los de otras páginas guardados antes se conservan."""
     documento = repo.obtener_documento(db, documento_id)
     if not documento:
         raise DocumentoNoExiste(f"El documento {documento_id} no existe")
@@ -28,9 +52,15 @@ def reprocesar_documento(
     except FileNotFoundError as e:
         raise DocumentoNoExiste(f"El archivo original del documento {documento_id} ya no existe (puede que se haya purgado)") from e
     plantilla_id = plantilla_id if plantilla_id is not None else documento.PlantillaForzadaId
+    recortes = recortes_manuales_guardados(documento)
+    if recorte_manual is not None:
+        pagina, recorte = recorte_manual
+        if not 1 <= pagina <= (documento.Paginas or 1):
+            raise PaginaFueraDeRango(f"El documento tiene {documento.Paginas or 1} página(s)")
+        recortes[pagina] = recorte
     # Reutiliza el mismo DocumentoId: se actualiza en lugar de crear uno nuevo.
     try:
-        return _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id)
+        return _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id, recortes)
     except (StaleDataError, ObjectDeletedError, IntegrityError) as e:
         # Carrera con la purga: el documento se borró entre que se cargó y que se guardó el resultado.
         db.rollback()
@@ -39,7 +69,7 @@ def reprocesar_documento(
         raise
 
 
-def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id):
+def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id, recortes_manuales=None):
     import time
 
     from ..dominio.modelos import CampoExtraidoDTO, Clasificacion
@@ -60,7 +90,9 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
     tiempos: dict[str, int] = {}
     t_total = time.perf_counter()
     try:
-        doc_ing, paginas, motor_usado, tiempos_pipeline = procesar_bytes(documento.NombreArchivo, datos, settings)
+        doc_ing, paginas, motor_usado, tiempos_pipeline = procesar_bytes(
+            documento.NombreArchivo, datos, settings, recortes_manuales=recortes_manuales
+        )
         tiempos.update(tiempos_pipeline)
 
         t0 = time.perf_counter()

@@ -148,13 +148,88 @@ def corregir_perspectiva_detalle(img: np.ndarray, lado_deteccion: int = 400) -> 
     alto = max(np.linalg.norm(q[0] - q[3]), np.linalg.norm(q[1] - q[2]))
     if ancho < 200 or alto < 100 or not (1.0 <= max(ancho, alto) / min(ancho, alto) <= 2.2):
         return img, None  # proporciones que no son de un documento/tarjeta
-    destino = np.array([[0, 0], [ancho - 1, 0], [ancho - 1, alto - 1], [0, alto - 1]], dtype=np.float32)
-    m = cv2.getPerspectiveTransform(q.astype(np.float32), destino)
-    salida = cv2.warpPerspective(
-        img, m, (int(round(ancho)), int(round(alto))), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
-    )
     esquinas = [[round(float(x) / w, 4), round(float(y) / h, 4)] for x, y in q]
-    return salida, esquinas
+    return _proyectar(img, q), esquinas
+
+
+def _proyectar(img: np.ndarray, q: np.ndarray) -> np.ndarray:
+    """Proyecta el cuadrilátero `q` (píxeles; arriba-izq, arriba-der, abajo-der, abajo-izq) a un rectángulo."""
+    q = np.asarray(q, dtype=np.float32)
+    ancho = max(np.linalg.norm(q[0] - q[1]), np.linalg.norm(q[3] - q[2]))
+    alto = max(np.linalg.norm(q[0] - q[3]), np.linalg.norm(q[1] - q[2]))
+    destino = np.array([[0, 0], [ancho - 1, 0], [ancho - 1, alto - 1], [0, alto - 1]], dtype=np.float32)
+    m = cv2.getPerspectiveTransform(q, destino)
+    return cv2.warpPerspective(
+        img, m, (max(1, int(round(ancho))), max(1, int(round(alto)))), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+    )
+
+
+def aplicar_esquinas(img: np.ndarray, esquinas: list[list[float]]) -> np.ndarray:
+    """Recorta y endereza con 4 esquinas relativas (0-1) a `img` (recorte manual o reconstrucción de uno guardado)."""
+    h, w = img.shape[:2]
+    return _proyectar(img, np.array(esquinas, dtype=np.float32) * [w, h])
+
+
+class EsquinasInvalidas(ValueError):
+    pass
+
+
+def validar_esquinas(esquinas) -> list[list[float]]:
+    """4 puntos relativos (0-1) en orden arriba-izq, arriba-der, abajo-der, abajo-izq que formen un cuadrilátero convexo,
+    no degenerado (área >= 2 % de la imagen) y con ángulos interiores entre 30 y 150 grados."""
+    try:
+        q = np.array(esquinas, dtype=np.float64)
+    except (TypeError, ValueError) as e:
+        raise EsquinasInvalidas("Las esquinas deben ser 4 pares [x, y]") from e
+    if q.shape != (4, 2):
+        raise EsquinasInvalidas("Las esquinas deben ser 4 pares [x, y]")
+    if not np.isfinite(q).all() or (q < 0).any() or (q > 1).any():
+        raise EsquinasInvalidas("Las coordenadas de las esquinas deben estar entre 0 y 1")
+    lados = np.roll(q, -1, axis=0) - q
+    cruces = lados[:, 0] * np.roll(lados, -1, axis=0)[:, 1] - lados[:, 1] * np.roll(lados, -1, axis=0)[:, 0]
+    if not (cruces > 0).all():
+        raise EsquinasInvalidas(
+            "Las esquinas no forman un cuadrilátero convexo en el orden arriba-izquierda, arriba-derecha, abajo-derecha, "
+            "abajo-izquierda"
+        )
+    if cv2.contourArea(q.astype(np.float32)) < 0.02:
+        raise EsquinasInvalidas("El recorte es demasiado pequeño")
+    if not _angulos_razonables(q, 30.0, 150.0):
+        raise EsquinasInvalidas("El recorte está demasiado deformado (algún ángulo es menor de 30 o mayor de 150 grados)")
+    return [[round(float(x), 4), round(float(y), 4)] for x, y in q]
+
+
+ORIENTACIONES = (0, 90, 180, 270)
+
+
+def girar(img: np.ndarray, grados: int) -> np.ndarray:
+    """Gira la imagen en sentido horario (0/90/180/270)."""
+    if grados == 90:
+        return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+    if grados == 180:
+        return cv2.rotate(img, cv2.ROTATE_180)
+    if grados == 270:
+        return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return img
+
+
+def _rotar_deskew(img: np.ndarray, angulo: float) -> np.ndarray:
+    h, w = img.shape[:2]
+    m = cv2.getRotationMatrix2D((w / 2, h / 2), angulo, 1.0)
+    return cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+
+def reconstruir_enderezada(img: np.ndarray, recorte: dict | None) -> np.ndarray:
+    """La imagen en color sobre la que leyó el OCR (mismo marco que las coordenadas de PalabrasJson), rehecha a partir de
+    la original y de los datos guardados del recorte: esquinas -> giro -> enderezado fino. Sin binarizar."""
+    if not recorte:
+        return img
+    if recorte.get("esquinas"):
+        img = aplicar_esquinas(img, recorte["esquinas"])
+    img = girar(img, int(recorte.get("orientacion") or 0))
+    if recorte.get("deskew"):
+        img = _rotar_deskew(img, float(recorte["deskew"]))
+    return img
 
 
 def a_gris(img: np.ndarray) -> np.ndarray:
@@ -188,10 +263,7 @@ def deskew(gris: np.ndarray) -> tuple[np.ndarray, float]:
     ang = angulo_inclinacion(gris)
     if abs(ang) < 0.3:
         return gris, 0.0
-    h, w = gris.shape[:2]
-    m = cv2.getRotationMatrix2D((w / 2, h / 2), ang, 1.0)
-    rot = cv2.warpAffine(gris, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    return rot, ang
+    return _rotar_deskew(gris, ang), ang
 
 
 def denoise(gris: np.ndarray) -> np.ndarray:
@@ -241,26 +313,41 @@ def preprocesar(img: np.ndarray, op: OpcionesPreprocesado | None = None) -> tupl
 
 
 def preprocesar_detalle(
-    img: np.ndarray, op: OpcionesPreprocesado | None = None
+    img: np.ndarray, op: OpcionesPreprocesado | None = None, recorte_manual: dict | None = None
 ) -> tuple[np.ndarray, list[str], float, dict]:
     """Como preprocesar, y además los datos del recorte (docs/13 §1.3), para guardarlos con el resultado:
-    {aplicado, origen ("automatico"|"ninguno"), esquinas (relativas a la imagen original) o None,
-     relacion (lado mayor / menor tras el recorte), orientacion (giro en grados; hoy siempre 0), deskew (grados)}.
-    Las coordenadas de las palabras del OCR quedan sobre la imagen resultante (recortada y enderezada)."""
+    {aplicado, origen ("automatico"|"manual"|"ninguno"), esquinas (relativas a la imagen original) o None,
+     relacion (lado mayor / menor tras el recorte y el giro), orientacion (giro horario en grados), deskew (grados)}.
+    Las coordenadas de las palabras del OCR quedan sobre la imagen resultante (recortada, girada y enderezada).
+
+    `recorte_manual` = {"esquinas": [[x,y]x4] o None, "orientacion": 0|90|180|270}: esquinas marcadas por una persona
+    (se usan en lugar de la detección automática, que no se ejecuta) y/o un giro manual."""
     op = op or OpcionesPreprocesado()
     pasos: list[str] = []
     esquinas = None
-    if op.perspectiva:
+    origen = "ninguno"
+    orientacion = 0
+    if recorte_manual and recorte_manual.get("esquinas"):
+        esquinas = recorte_manual["esquinas"]
+        img = aplicar_esquinas(img, esquinas)
+        origen = "manual"
+        pasos.append("perspectiva(manual)")
+    elif op.perspectiva:
         img, esquinas = corregir_perspectiva_detalle(img)
         if esquinas is not None:
+            origen = "automatico"
             pasos.append("perspectiva")
+    if recorte_manual and recorte_manual.get("orientacion"):
+        orientacion = int(recorte_manual["orientacion"])
+        img = girar(img, orientacion)
+        pasos.append(f"giro({orientacion})")
     h, w = img.shape[:2]
     recorte = {
         "aplicado": esquinas is not None,
-        "origen": "automatico" if esquinas is not None else "ninguno",
+        "origen": origen,
         "esquinas": esquinas,
         "relacion": round(max(h, w) / max(1, min(h, w)), 3),
-        "orientacion": 0,
+        "orientacion": orientacion,
         "deskew": 0.0,
     }
     gris = a_gris(img)

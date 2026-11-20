@@ -14,12 +14,16 @@ class ErrorPipeline(RuntimeError):
 
 
 def procesar_bytes(
-    nombre: str, datos: bytes, settings, idioma: str | None = None
+    nombre: str, datos: bytes, settings, idioma: str | None = None, recortes_manuales: dict[int, dict] | None = None
 ) -> tuple[DocumentoIngresado, list[PaginaOCR], str, dict[str, int]]:
     """Ejecuta el pipeline completo de lectura (sin clasificación/extracción).
 
+    `recortes_manuales`: {numero_pagina: {"esquinas": [...] | None, "orientacion": 0|90|180|270}} marcados por una
+    persona (docs/13 §4.2); esas páginas no pasan por la detección automática del recorte.
+
     Devuelve (documento ingresado, páginas OCR, motor OCR usado, tiempos_ms parciales).
     """
+    recortes_manuales = recortes_manuales or {}
     tiempos: dict[str, int] = {}
     idioma = idioma or settings.OCR_IDIOMA
 
@@ -56,8 +60,8 @@ def procesar_bytes(
     imagenes_proc = []
     pasos_por_pagina = []
     recortes = []
-    for img in doc.imagenes:
-        proc, pasos, _factor, recorte = preprocesar_detalle(img, op)
+    for i, img in enumerate(doc.imagenes):
+        proc, pasos, _factor, recorte = preprocesar_detalle(img, op, recortes_manuales.get(i + 1))
         imagenes_proc.append(proc)
         pasos_por_pagina.append(pasos)
         recortes.append(recorte)

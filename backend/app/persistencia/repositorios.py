@@ -61,6 +61,7 @@ def crear_plantilla(db: Session, datos: PlantillaCrear) -> m.Plantilla:
         UmbralConfianza=datos.umbral_confianza,
         DocumentoEjemploId=datos.documento_ejemplo_id,
         CreadoPor=datos.creado_por,
+        DisenoJson=datos.diseno.model_dump_json() if datos.diseno else None,
     )
     db.add(version)
     db.flush()
@@ -96,6 +97,7 @@ def nueva_version_plantilla(db: Session, plantilla: m.Plantilla, datos: Plantill
         UmbralConfianza=datos.umbral_confianza,
         DocumentoEjemploId=datos.documento_ejemplo_id,
         CreadoPor=datos.creado_por,
+        DisenoJson=datos.diseno.model_dump_json() if datos.diseno else None,
     )
     db.add(version)
     db.flush()

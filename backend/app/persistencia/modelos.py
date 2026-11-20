@@ -76,6 +76,8 @@ class PlantillaVersion(Base):
     )
     CreadoEn: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
     CreadoPor: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # diseño por posición (docs/13 §1.2; migracion_010). NULL = plantilla sin cuadrícula.
+    DisenoJson: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     plantilla: Mapped["Plantilla"] = relationship(
         "Plantilla", back_populates="versiones", foreign_keys=[PlantillaId]

@@ -68,6 +68,8 @@ BEGIN
         DocumentoEjemploId  UNIQUEIDENTIFIER NULL,
         CreadoEn            DATETIME2 NOT NULL CONSTRAINT DF_PlantillaVersion_CreadoEn DEFAULT SYSUTCDATETIME(),
         CreadoPor           NVARCHAR(100) NULL,
+        -- diseno por posicion de la version (docs/13 1.2; en BD existentes: migracion_010). NULL = sin cuadricula
+        DisenoJson          NVARCHAR(MAX) NULL CONSTRAINT CK_PlantillaVersion_DisenoJson CHECK (DisenoJson IS NULL OR ISJSON(DisenoJson) = 1),
         CONSTRAINT UQ_PlantillaVersion_Plantilla_Numero UNIQUE (PlantillaId, Numero)
     );
     PRINT 'Tabla dbo.PlantillaVersion creada.';

@@ -70,6 +70,9 @@ Base: `http://localhost:8000/api`. Todas las rutas requieren cabecera `X-API-Key
 | `GET` | `/documentos/{id}/resultado` | JSON de resultado (contrato del diseño general) |
 | `GET` | `/documentos/{id}/archivo` | Descarga el original |
 | `GET` | `/documentos/{id}/paginas/{n}` | Imagen de la página (para la UI de plantillas) |
+| `GET` | `/documentos/{id}/paginas/{n}/enderezada` | Página recortada, girada y enderezada, en color: el marco de las coordenadas de `/palabras`. Cabeceras `X-Recorte-Confiable`, `X-Recorte-Origen` (`automatico`/`manual`/`ninguno`/`pdf`/`desconocido`) y `X-Orientacion`. `?relacion=` opcional para juzgar el recorte con la proporción de una plantilla nueva (docs/13 §7); `?formato=jpeg` (calidad 90) para móvil, PNG por defecto. |
+| `GET` | `/documentos/{id}/paginas/{n}/palabras` | `{pagina, recorte: {confiable, aplicado, origen, esquinas, relacion, orientacion}, palabras: [{texto, x, y, ancho, alto, confianza}]}` con coordenadas relativas 0–1. 404 «Reprocese el documento…» si es anterior a la migración 009. |
+| `POST` | `/documentos/{id}/paginas/{n}/recorte` | Recorte y/o giro manual: `{esquinas?: [[x,y]×4], orientacion?: 0\|90\|180\|270}`. Las esquinas son relativas a la imagen original (arriba-izq, arriba-der, abajo-der, abajo-izq). Valida (422 si no es un cuadrilátero convexo razonable), reprocesa y devuelve el resultado. Los reprocesos posteriores conservan el recorte manual. |
 | `POST` | `/documentos/{id}/reprocesar` | Vuelve a ejecutar el pipeline (por ejemplo, tras editar una plantilla) |
 
 ### Plantillas

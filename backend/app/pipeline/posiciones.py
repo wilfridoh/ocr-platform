@@ -69,6 +69,25 @@ def leer_palabras(texto_json: str | None) -> dict[int, list[dict[str, Any]]]:
     }
 
 
+TOLERANCIA_RELACION = 0.08
+
+
+def recorte_confiable(recorte: dict[str, Any] | None, relacion_esperada: float | None = None) -> bool:
+    """¿La página quedó recortada de forma fiable para dibujar/usar zonas encima? (docs/13 §4.1)
+    - recorte marcado por una persona: sí;
+    - con proporción esperada (de la plantilla, sin atarse a un formato): la página recortada, o la imagen que ya es el
+      documento (un escaneo), está a ±8 % de esa proporción;
+    - sin proporción esperada: se recortó automáticamente."""
+    if not recorte:
+        return False
+    if recorte.get("origen") == "manual" and recorte.get("esquinas"):
+        return True
+    if relacion_esperada:
+        relacion = recorte.get("relacion") or 0
+        return abs(relacion - relacion_esperada) <= TOLERANCIA_RELACION * relacion_esperada
+    return bool(recorte.get("aplicado"))
+
+
 def leer_recorte(texto_json: str | None) -> dict[int, dict[str, Any]]:
     if not texto_json:
         return {}

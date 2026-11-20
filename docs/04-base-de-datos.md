@@ -102,6 +102,7 @@ Un tipo de documento. La definición concreta vive en `PlantillaVersion` para po
 | `UmbralConfianza` | `DECIMAL(4,3)` default 0.600 | |
 | `DocumentoEjemploId` | `UNIQUEIDENTIFIER` NULL FK → `Documento` | documento con el que se creó |
 | `CreadoEn`, `CreadoPor` | `DATETIME2`, `NVARCHAR(100)` | |
+| `DisenoJson` | `NVARCHAR(MAX)` NULL, `ISJSON` | Diseño por posición de la versión (docs/13 §1.2): `{formato, relacion, umbral_coincidencia, tolerancia, densidad_rejilla, elementos_fijos: [{x, y, ancho, alto, pagina?, texto_esperado}]}`. `NULL` = plantilla sin cuadrícula. Las zonas de cada campo van en su `ReglaJson` (`x/y/ancho/alto` del valor y `zona_etiqueta`). Agregada con `migracion_010_plantilla_diseno.sql`. |
 
 ### 4.3 `PalabraClave`
 | Columna | Tipo | Notas |

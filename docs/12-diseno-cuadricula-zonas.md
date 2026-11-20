@@ -48,6 +48,15 @@ Al pulsar "Usar cámara" en un flujo de cédula aparece una hoja con el marco ID
 - **Palabras en gris** (confianza < 0,7, mismo umbral de la segunda opinión): en el texto OCR del paso 1 y sobre la tarjeta en el editor de cuadrícula, con leyenda.
 - **Girar 90°** en el aviso de recorte no fiable (`POST …/recorte` con `orientacion`).
 
+## 4 ter. Recorte manual y origen del recorte (contrato de la entrega 2)
+
+- Chip "Recorte: automático | manual | no detectado | desconocido" en la cabecera del editor (de `X-Recorte-Origen` / `X-Recorte-Confiable`).
+- **Ajustar esquinas** muestra 4 manijas (orden arriba-izq, arriba-der, abajo-der, abajo-izq, relativas a la imagen original) y **Confirmar recorte** llama a `POST …/recorte`. Mientras responde: esqueleto "Recortando… (unos segundos)" y sin botones.
+- Error 422: alerta roja "No se pudo aplicar el recorte" con el `detail` del servidor tal cual; las manijas siguen visibles para corregir.
+- **Girar 90°** envía solo `orientacion` (conserva las esquinas manuales previas).
+- Documento anterior (origen `desconocido`): aviso con botón **Reprocesar para ver posiciones**; el arrastre sigue funcionando.
+- Imagen enderezada: PNG está bien para el editor de escritorio (~0,2 s); en móvil conviene JPEG calidad ~90 si pesa 1–2 MB.
+
 ## 5. Dependencias de API (para coordinar con Desarrollo OCR)
 
 - `ReglaCampo` ya tiene `x, y, ancho, alto, pagina`; falta distinguir `tipo_zona` (`valor` | `etiqueta`) y guardar `texto_esperado` de las etiquetas; la plantilla necesita `umbral_coincidencia` y `densidad_rejilla` (solo UI).

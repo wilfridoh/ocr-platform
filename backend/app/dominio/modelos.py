@@ -40,6 +40,44 @@ class PaginaOCR(BaseModel):
 
 
 # ---------------------------------------------------------------- Plantillas
+class ZonaRelativa(BaseModel):
+    """Rectángulo relativo (0-1) sobre la página ya recortada y enderezada (docs/13 §1)."""
+
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    ancho: float = Field(gt=0, le=1)
+    alto: float = Field(gt=0, le=1)
+    pagina: Optional[int] = Field(default=None, ge=1)
+
+    @field_validator("alto")
+    @classmethod
+    def _dentro_de_la_pagina(cls, v: float, info) -> float:
+        d = info.data
+        if "x" in d and "ancho" in d and d["x"] + d["ancho"] > 1.0001:
+            raise ValueError("la zona se sale de la página por la derecha (x + ancho > 1)")
+        if "y" in d and d["y"] + v > 1.0001:
+            raise ValueError("la zona se sale de la página por abajo (y + alto > 1)")
+        return v
+
+
+class ZonaEtiqueta(ZonaRelativa):
+    """Etiqueta fija impresa: texto que debe aparecer en esa zona (se usa para validar el diseño)."""
+
+    texto_esperado: str = Field(min_length=1, max_length=200)
+
+
+class DisenoPlantilla(BaseModel):
+    """Diseño por posición de una versión de plantilla (docs/13 §1.2). Nada atado a un formato concreto: la proporción
+    esperada es un dato de la plantilla."""
+
+    formato: str = Field(default="libre", max_length=20)  # preajuste del editor: ID-1, A4, carta, libre...
+    relacion: Optional[float] = Field(default=None, ge=1.0, le=10.0)  # lado mayor / lado menor esperado
+    umbral_coincidencia: float = Field(default=0.8, ge=0, le=1)
+    tolerancia: float = Field(default=0.03, ge=0, le=0.2)  # fracción del ancho/alto
+    densidad_rejilla: Optional[str] = Field(default=None, pattern=r"^\d{1,2}x\d{1,2}$")  # solo UI, p. ej. "12x8"
+    elementos_fijos: list[ZonaEtiqueta] = Field(default_factory=list, max_length=100)  # etiquetas sin campo
+
+
 class ReglaCampo(BaseModel):
     metodo: Metodo
     regex: Optional[str] = None
@@ -56,6 +94,8 @@ class ReglaCampo(BaseModel):
     # valores canónicos del campo (p. ej. gentilicios): una lectura a 1 carácter de distancia de uno de ellos se
     # guarda en su forma canónica, y si la regla no encuentra nada se busca en el texto una palabra así (docs/02 §4.5)
     catalogo: Optional[list[str]] = None
+    # x/y/ancho/alto (arriba) son la zona del VALOR; esta es la etiqueta fija impresa del campo (docs/13 §1.1)
+    zona_etiqueta: Optional[ZonaEtiqueta] = None
 
     @field_validator("regex")
     @classmethod
@@ -92,6 +132,8 @@ class PlantillaCrear(BaseModel):
     campos: list[CampoPlantillaDTO] = Field(default_factory=list)
     documento_ejemplo_id: Optional[str] = None
     creado_por: Optional[str] = None
+    # diseño por posición de la versión (docs/13 §1.2); None = sin cuadrícula, se comporta como siempre
+    diseno: Optional[DisenoPlantilla] = None
 
 
 class PlantillaDTO(PlantillaCrear):
