@@ -19,6 +19,9 @@ from ._convertir import campos_de_version, palabras_clave_de_version
 from .errores import DocumentoPurgado  # noqa: F401  (reexportado)
 
 
+MAX_NOMBRE_ARCHIVO = 260  # Documento.NombreArchivo es NVARCHAR(260)
+
+
 class PlantillaForzadaNoExiste(ValueError):
     pass
 
@@ -62,6 +65,10 @@ def _procesar_documento(
 
     `flujo` (modelos.FlujoCaptura) restringe la clasificación a sus plantillas permitidas; si ninguna
     aplica, el documento queda en estado NO_COINCIDE (se esperaba algo concreto y no llegó)."""
+    # NVARCHAR cuenta unidades UTF-16: un emoji fuera del plano básico ocupa 2 (len() de Python contaría 1)
+    if len(nombre_archivo.encode("utf-16-le", "surrogatepass")) // 2 > MAX_NOMBRE_ARCHIVO:
+        # antes de OCR y de guardar nada: si no, el INSERT falla y además queda el archivo sin registro
+        raise ErrorIngesta(f"El nombre del archivo es demasiado largo (máximo {MAX_NOMBRE_ARCHIVO} caracteres)")
     plantilla_forzada = None
     if plantilla_id is not None:
         plantilla_forzada = repo.obtener_plantilla(db, plantilla_id)

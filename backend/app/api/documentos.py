@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from io import BytesIO
 
@@ -18,6 +19,8 @@ from ..queries.buscar_documentos import buscar_documentos
 from ..persistencia import repositorios as repo
 from .dependencias import get_almacen, get_db
 from .seguridad import Principal, autenticar, verificar_api_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documentos", tags=["documentos"], dependencies=[Depends(verificar_api_key)])
 
@@ -47,7 +50,9 @@ async def subir_documento(
     except DocumentoPurgado as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{e}. Vuelve a subirlo.") from e
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+        # el detalle va al log, no al cliente: puede traer nombres de tablas/columnas o valores del documento
+        logger.exception("Error inesperado procesando un documento")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No se pudo procesar el documento") from e
 
     return resultado.a_contrato(documento_id, archivo.filename or "documento", estado="COMPLETADO")
 

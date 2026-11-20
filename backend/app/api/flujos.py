@@ -253,7 +253,7 @@ async def procesar_con_flujo(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"{e}. Vuelve a subirlo.") from e
     except Exception as e:  # noqa: BLE001
         logger.exception("Error procesando documento del flujo %s", codigo)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e) if not anonimo else "No se pudo procesar el documento") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No se pudo procesar el documento") from e
 
     # Auditoría: de dónde llegó (distingue lo público de lo que sube el personal interno)
     if anonimo:
