@@ -8,6 +8,7 @@ import CargandoIndicador from '@/componentes/CargandoIndicador'
 import MensajeError from '@/componentes/MensajeError'
 import SinPermiso from '@/componentes/SinPermiso'
 import LienzoCuadricula, { type ZonaDibujo } from '@/componentes/cuadricula/LienzoCuadricula'
+import PanelValidacion from '@/componentes/cuadricula/PanelValidacion'
 import AjusteEsquinas from '@/componentes/cuadricula/AjusteEsquinas'
 import { rolMayor } from '@/utilidades/roles'
 import { useYo } from '@/utilidades/useYo'
@@ -134,6 +135,15 @@ export default function ZonasPlantilla() {
   const urlOriginal = useObjectUrl(originalQuery.data)
   const palabras = palabrasQuery.data?.palabras ?? []
   const recorte = palabrasQuery.data?.recorte
+  // el diseño tal como quedaría al guardar (lo usan Guardar y la vista previa de Validar)
+  const disenoActual: DisenoPlantilla = useMemo(
+    () => ({
+      ...diseno,
+      relacion: diseno.formato === 'libre' ? recorte?.relacion ?? diseno.relacion ?? null : diseno.relacion,
+      elementos_fijos: estado?.fijos ?? [],
+    }),
+    [diseno, recorte?.relacion, estado?.fijos],
+  )
   const sinPosiciones = palabrasQuery.error instanceof ErrorApi && palabrasQuery.error.status === 404
   const origen = recorte?.origen ?? imagenQuery.data?.origen ?? (sinPosiciones ? 'desconocido' : undefined)
   const confiable = recorte?.confiable ?? imagenQuery.data?.confiable ?? false
@@ -165,11 +175,7 @@ export default function ZonasPlantilla() {
         umbral_confianza: plantilla!.umbral_confianza,
         palabras_clave: plantilla!.palabras_clave,
         campos: estado!.campos,
-        diseno: {
-          ...diseno,
-          relacion: diseno.formato === 'libre' ? recorte?.relacion ?? diseno.relacion ?? null : diseno.relacion,
-          elementos_fijos: estado!.fijos,
-        },
+        diseno: disenoActual,
       }),
     onSuccess: () => {
       setHistorial([])
@@ -318,7 +324,7 @@ export default function ZonasPlantilla() {
         ))}
       </div>
 
-      <div className="mb-3 flex flex-wrap items-end gap-3">
+      <div className={`mb-3 flex flex-wrap items-end gap-3 ${pestana === 'validar' ? 'hidden' : ''}`}>
         <div className="min-w-[260px] flex-1">
           <label className="etiqueta-campo">Documento de ejemplo</label>
           <select
@@ -352,19 +358,14 @@ export default function ZonasPlantilla() {
       </div>
 
       {pestana === 'validar' ? (
-        <div className="tarjeta flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-slate-600">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-400" aria-hidden>
-            ◎
-          </span>
-          <b className="text-slate-800">Disponible próximamente</b>
-          <p className="max-w-md">
-            Aquí verás el puntaje de coincidencia de diseño de un documento con esta plantilla. Mientras tanto, los campos con zona
-            ya se leen por posición al procesar y avisan si quedaron fuera de su zona.
-          </p>
-          <button type="button" className="boton-secundario" disabled>
-            Validar documento
-          </button>
-        </div>
+        <PanelValidacion
+          plantillaId={plantillaId}
+          campos={estado.campos}
+          diseno={disenoActual}
+          documentos={documentosQuery.data?.items ?? []}
+          documentoInicial={documentoId}
+          densidad={dens}
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_330px]">
           <div className="space-y-3">

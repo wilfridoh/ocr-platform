@@ -7,8 +7,11 @@ import type {
   FlujoCaptura,
   FlujoCapturaEntrada,
   FlujoPublico,
+  Coincidencia,
+  DisenoPlantilla,
   ListaPaginada,
   PalabraPosicion,
+  ZonaCoincidencia,
   Plantilla,
   PlantillaEntrada,
   RecorteInfo,
@@ -58,6 +61,34 @@ const PALABRAS_TARJETA_MOCK: PalabraPosicion[] = [
   { texto: '01 ENE 2030', x: 0.33, y: 0.84, ancho: 0.2, alto: 0.06, confianza: 0.91 },
 ]
 const recortesMock: Record<string, RecorteInfo> = {}
+
+/** Coincidencia simulada: cada etiqueta "coincide" si su texto esperado aparece en la tarjeta ficticia. */
+function coincidenciaMock(diseno: DisenoPlantilla, campos: Campo[]): Coincidencia {
+  const etiquetas = [
+    ...campos.filter((c) => c.regla.zona_etiqueta).map((c) => ({ campo: c.nombre as string | null, z: c.regla.zona_etiqueta! })),
+    ...diseno.elementos_fijos.map((z) => ({ campo: null, z })),
+  ]
+  const zonas: ZonaCoincidencia[] = etiquetas.map(({ campo, z }) => {
+    const leida = PALABRAS_TARJETA_MOCK.find((p) => p.texto.toLowerCase() === z.texto_esperado.toLowerCase())
+    return {
+      ...z, campo, tipo: 'etiqueta', esperado: z.texto_esperado, leido: leida?.texto ?? null,
+      similitud: leida ? 1 : 0, estado: leida ? 'coincide' : 'no_coincide',
+    }
+  })
+  const valores: ZonaCoincidencia[] = campos
+    .filter((c) => c.regla.x != null && c.regla.ancho)
+    .map((c) => ({ x: c.regla.x!, y: c.regla.y!, ancho: c.regla.ancho!, alto: c.regla.alto!, campo: c.nombre, tipo: 'valor', estado: 'coincide', leido_ok: true }))
+  const ok = zonas.filter((z) => z.estado === 'coincide').length
+  const puntaje = zonas.length ? 0.7 * (ok / zonas.length) + 0.3 : 0
+  const verificable = zonas.length > 0
+  return {
+    verificable, puntaje: verificable ? Math.round(puntaje * 1000) / 1000 : null, umbral: diseno.umbral_coincidencia,
+    veredicto: !verificable ? null : puntaje >= diseno.umbral_coincidencia ? 'coincide' : puntaje >= diseno.umbral_coincidencia - 0.15 ? 'parcial' : 'no_coincide',
+    etiquetas_ok: ok, etiquetas_total: zonas.length, desplazamiento_medio: verificable ? 0.004 : null,
+    valores_legibles: valores.length, valores_total: valores.length, recorte_confiable: true, recorte_origen: 'automatico',
+    orientacion: 0, zonas: [...zonas, ...valores], sugerencia: null,
+  }
+}
 
 function recorteMock(id: string): RecorteInfo {
   return (
@@ -388,11 +419,14 @@ export const apiMock: ClienteApi = {
     return esperar(sugerencia, 700)
   },
 
-  async probarPlantilla(id, documentoId) {
+  async probarPlantilla(id, documentoId, cambios) {
     const plantilla = plantillas.find((p) => p.id === id)
     const base = resultados[documentoId] ?? resultadoMockCompleto
     if (!plantilla) throw new Error('Plantilla no encontrada')
+    const diseno = cambios && 'diseno' in cambios ? cambios.diseno : plantilla.diseno
+    const campos = cambios?.campos ?? plantilla.campos
     const simulado: Resultado = {
+      coincidencia: diseno ? coincidenciaMock(diseno, campos) : null,
       ...base,
       clasificacion: {
         tipo: plantilla.codigo,

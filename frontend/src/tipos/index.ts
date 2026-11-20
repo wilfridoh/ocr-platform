@@ -416,6 +416,41 @@ export interface Resultado {
   /** Opcionales: los devuelve el detalle para auditoría */
   log?: EntradaLog[]
   palabras_ocr?: PalabraOCR[]
+  /** Coincidencia de DISEÑO con la plantilla (docs/13 §3.3); null si la plantilla no tiene cuadrícula */
+  coincidencia?: Coincidencia | null
+}
+
+export type EstadoZona = 'coincide' | 'parcial' | 'no_coincide'
+
+export interface ZonaCoincidencia extends ZonaRelativa {
+  campo: string | null
+  tipo: 'etiqueta' | 'valor'
+  estado: EstadoZona
+  /** Solo etiquetas: texto impreso esperado, lo leído y su similitud (0-1) */
+  esperado?: string
+  leido?: string | null
+  similitud?: number
+  /** Solo valores: si se leyó algo válido (el dato en sí está en `campos`) */
+  leido_ok?: boolean
+}
+
+/** Valida el diseño (textos impresos en su sitio), no la autenticidad del documento. */
+export interface Coincidencia {
+  verificable: boolean
+  puntaje: number | null
+  umbral: number
+  veredicto: EstadoZona | null
+  etiquetas_ok: number
+  etiquetas_total: number
+  /** En fracción de la página; la UI lo pasa a celdas con su densidad */
+  desplazamiento_medio: number | null
+  valores_legibles: number
+  valores_total: number
+  recorte_confiable: boolean
+  recorte_origen: OrigenRecorte
+  orientacion: number
+  zonas: ZonaCoincidencia[]
+  sugerencia?: { plantilla_id: number; codigo: string; puntaje: number } | null
 }
 
 // ---------------------------------------------------------------------------

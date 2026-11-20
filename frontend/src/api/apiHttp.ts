@@ -97,10 +97,11 @@ export const apiHttp: ClienteApi = {
     documentoIds.forEach((id) => q.append('documento_id', id))
     return solicitar<SugerenciaPlantilla>(`/plantillas/sugerir?${q.toString()}`, { method: 'POST' })
   },
-  probarPlantilla: (id, documentoId) =>
-    solicitar<Resultado>(`/plantillas/${id}/probar${aQuery({ documento_id: documentoId })}`, { method: 'POST' }).then(
-      adaptarResultado,
-    ),
+  probarPlantilla: (id, documentoId, cambios) =>
+    solicitar<Resultado>(`/plantillas/${id}/probar${aQuery({ documento_id: documentoId })}`, {
+      method: 'POST',
+      ...(cambios ? { body: cambios } : {}),
+    }).then(adaptarResultado),
   listarVersionesPlantilla: (id) => solicitar<VersionPlantilla[]>(`/plantillas/${id}/versiones`),
   reprocesarDocumentosDePlantilla: (id) =>
     solicitar<{ total: number }>(`/plantillas/${id}/reprocesar`, { method: 'POST' }),

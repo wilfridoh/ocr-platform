@@ -403,6 +403,14 @@ Resultado: correcto en todo lo que pude probar. Veredicto: **aprobado**.
 
 Pendiente para pruebas finales: exclusión de datos del titular con ejemplos de nombres distintos; el flujo completo del asistente de nueva plantilla en `dev:real` (subida real → precarga en cuadrícula), con alguna herramienta de carga de archivos; el resto de la lista acumulada en las secciones anteriores.
 
-## 22. Limpieza al cierre
+## 22. Pestaña «Validar un documento» del editor de cuadrícula (2026-11-20, mismo día), nivel ligero
+
+Solo frontend (usa `/probar` de la entrega 4, ya validado). `tsc` limpio (confirmado).
+
+Humo en `dev:real`, con una plantilla propia inactiva (forzada por `plantilla_id`) y un documento sintético propio: con la etiqueta «Apellidos» en su sitio real, la pestaña muestra **100 % · Coincide** (umbral 80 %), detalle por zona con ambas filas en "✓ Coincide", 1 de 1 etiquetas en su sitio, desplazamiento 0,0 celdas. Moví la zona de esa etiqueta (sin guardar) a otra parte de la tarjeta (sobre "JUAN"): la pestaña recalculó sola a **35 % · No coincide**, 0 de 1 etiquetas en su sitio, desplazamiento 2,5 celdas, la fila de la etiqueta pasó a "≈ Coincidencia parcial". Confirmé en la red que solo se llamó `POST /plantillas/{id}/probar` (dos veces, antes y después del cambio) y ningún `PUT`: no se guardó nada, tal como se pidió.
+
+Resultado: correcto. Veredicto: **aprobado**.
+
+## 23. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.

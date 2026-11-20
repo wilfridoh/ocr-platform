@@ -1,4 +1,6 @@
 import type {
+  Campo,
+  DisenoPlantilla,
   Documento,
   EstadoDocumento,
   ImagenEnderezada,
@@ -70,7 +72,15 @@ export interface ClienteApi {
   cambiarEstadoPlantilla(id: number, activa: boolean): Promise<Plantilla>
   /** De 1 a 3 documentos de ejemplo del mismo tipo: con 2 o más, lo común es palabra clave y los datos del titular quedan fuera */
   sugerirPlantilla(documentoIds: string[]): Promise<SugerenciaPlantilla>
-  probarPlantilla(id: number, documentoId: string): Promise<Resultado>
+  /**
+   * Aplica la plantilla a un documento ya procesado, sin guardar nada. `cambios` prueba campos o un diseño aún sin
+   * guardar (vista previa del editor de cuadrícula); `diseno: null` explícito prueba sin cuadrícula.
+   */
+  probarPlantilla(
+    id: number,
+    documentoId: string,
+    cambios?: { campos?: Campo[]; diseno?: DisenoPlantilla | null },
+  ): Promise<Resultado>
   /** Versiones de una plantilla (opcional en el backend; el mock la implementa) */
   listarVersionesPlantilla(id: number): Promise<VersionPlantilla[]>
   /** Reprocesa todos los documentos que usaron esta plantilla; devuelve cuántos encoló */
