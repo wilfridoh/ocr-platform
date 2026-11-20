@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { Icono } from '@/componentes/Iconos'
+import GuiaCaptura from '@/componentes/GuiaCaptura'
 import { formatearValorCampo } from '@/utilidades/formato'
 
 const IMAGENES = ['.jpg', '.jpeg', '.png', '.tif', '.tiff']
@@ -126,6 +127,7 @@ export default function CapturaPublica() {
 
         {!resultado && !procesando && (
           <div className="mt-4 flex flex-col gap-3">
+            <GuiaCaptura />
             {!acepto && (
               <p id="aviso-ayuda" className="text-center text-xs text-ink-3">
                 Marca la casilla para poder subir tu documento.

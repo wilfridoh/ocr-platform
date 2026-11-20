@@ -43,6 +43,7 @@ def procesar_bytes(
         return doc, doc.paginas_nativas, "pdf-nativo", tiempos
 
     op = OpcionesPreprocesado(
+        perspectiva=settings.PRE_PERSPECTIVA,
         deskew=settings.PRE_DESKEW,
         denoise=settings.PRE_DENOISE,
         binarizar=settings.PRE_BINARIZAR,

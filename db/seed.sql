@@ -155,15 +155,16 @@ BEGIN
         (@VersionId, 'nacionalidad', 2),
         (@VersionId, 'fecha de nacimiento|fecha nacimiento|nacimiento', 3),
         (@VersionId, 'sexo', 1),
-        (@VersionId, 'numero de documento|n documento|nro documento|num documento|run', 4);
+        (@VersionId, 'republica del ecuador|registro civil', 3),
+        (@VersionId, 'numero de documento|n documento|nro documento|num documento|run|nui|numero unico de identificacion', 4);
 
     INSERT INTO dbo.CampoPlantilla (PlantillaVersionId, Nombre, Etiqueta, TipoDato, Obligatorio, Metodo, ReglaJson, Orden) VALUES
         (@VersionId, 'numero_documento', 'Número de documento', 'cedula', 1, 'regex',
-            N'{"metodo":"regex","regex":"(?i)(?:\\bcc\\s*N[:.]?\\s*(\\d{10})\\b|DOCUMENTO\\s*:?\\s*([\\d.-]{6,})|DOCUMENTO[\\s\\S]{0,60}?\\b(\\d{10})\\b|(?<!\\d)(\\d{9}\\s*-\\s*\\d)(?!\\d))"}', 1),
+            N'{"metodo":"regex","regex":"(?i)(?:\\bcc\\s*N[:.]?\\s*(\\d{10})\\b|DOCUMENTO\\s*:?\\s*([\\d.-]{6,})|DOCUMENTO[\\s\\S]{0,60}?\\b(\\d{10})\\b|(?<!\\d)(\\d{9}\\s*-\\s*\\d)(?!\\d)|\\bNUI\\W{0,3}(\\d{9}-?\\d)\\b)"}', 1),
         (@VersionId, 'nombres', 'Nombres', 'texto', 1, 'ancla',
             N'{"metodo":"ancla","ancla":"Nombres","regex":"[^\\n]+"}', 2),
         (@VersionId, 'apellidos', 'Apellidos', 'texto', 1, 'ancla',
-            N'{"metodo":"ancla","ancla":"Apellidos","regex":"[^\\n]+"}', 3),
+            N'{"metodo":"ancla","ancla":"Apellidos","regex":"[^\\n]+","lineas":2}', 3),
         (@VersionId, 'fecha_nacimiento', 'Fecha de nacimiento', 'fecha', 1, 'regex',
             N'{"metodo":"regex","regex":"(?i)FECHA\\s+DE\\s+NACIMIEN\\w*\\s*:?(?:[^\\n]*\\n){0,4}?[^\\n]*?(\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}|\\d{1,2}\\s+[A-Za-z]{3,10}\\s+[A-Za-z]?\\d{3,4})"}', 4),
         (@VersionId, 'fecha_vencimiento', 'Fecha de vencimiento', 'fecha', 0, 'regex',

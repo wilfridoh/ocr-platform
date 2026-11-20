@@ -7,6 +7,7 @@ import CargandoIndicador from '@/componentes/CargandoIndicador'
 import MensajeError from '@/componentes/MensajeError'
 import TablaCampos, { filasDesdeResultado } from '@/componentes/TablaCampos'
 import { Icono } from '@/componentes/Iconos'
+import GuiaCaptura from '@/componentes/GuiaCaptura'
 import { formatearPorcentaje } from '@/utilidades/formato'
 
 const IMAGENES = ['.jpg', '.jpeg', '.png', '.tif', '.tiff']
@@ -79,8 +80,14 @@ export default function ProcesarConFlujo() {
           <p className="text-ink-3">Formatos aceptados: {formatos}. Máximo 20 MB.</p>
         </div>
 
+        {!resultado && !procesando && (
+          <div className="mt-6">
+            <GuiaCaptura />
+          </div>
+        )}
+
         {!resultado && (
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-center">
             {flujo.acepta_camara && (
               <button type="button" className="boton-primario" disabled={procesando} onClick={() => entradaCamara.current?.click()}>
                 <Icono nombre="camara" /> Usar cámara

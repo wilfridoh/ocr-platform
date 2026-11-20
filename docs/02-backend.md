@@ -265,6 +265,7 @@ Transporte: `stdio` para uso local desde Claude Desktop / Claude Code, y `stream
 | `UMBRAL_DESCONOCIDO` | `0.5` | Umbral global mínimo de clasificación |
 | `OCR_MAX_MEGAPIXELES` | `50` | Imagen/página de más megapíxeles se rechaza (400) sin decodificarla (anti «bomba de píxeles») |
 | `OCR_MEGAPIXELES_PROCESADO` | `20` | Tamaño al que se reduce una imagen grande antes del OCR (A4 a 300 DPI = 8,7 MP) |
+| `PRE_PERSPECTIVA` | `true` | Aplanar fotos de documentos/tarjetas tomadas en ángulo antes del OCR (si no detecta un contorno confiable, no hace nada) |
 | `OCR_MAX_PAGINAS` | `30` | Máximo de páginas de un PDF o fotogramas de un TIFF |
 | `DOC_RETENCION_DIAS` | `30` | Días que se conserva un documento; pasado el plazo se elimina (archivo + registros). `0` = sin caducidad automática. Una sola política para todo documento (docs/07 §5.3) |
 | `DOC_PURGA_AUTOMATICA` / `DOC_PURGA_INTERVALO_HORAS` | `false` / `24` | Hilo que purga los vencidos a diario. Apagado por defecto en el código; `docker-compose.yml` lo enciende |

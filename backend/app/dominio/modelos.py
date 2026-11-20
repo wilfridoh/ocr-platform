@@ -50,6 +50,7 @@ class ReglaCampo(BaseModel):
     # extras opcionales
     flags: Optional[str] = None  # p. ej. "i" para ignorar mayúsculas
     misma_linea: bool = True  # ancla: buscar en la misma línea; si no hay, la siguiente
+    lineas: int = 1  # ancla con el valor en las líneas siguientes: cuántas líneas unir (p. ej. 2 apellidos en 2 líneas)
 
     @field_validator("regex")
     @classmethod

@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     # Carpeta con *.traineddata. Vacío = autodetectar (backend/tessdata si contiene el idioma)
     TESSDATA_PREFIX: str = ""
     # Pasos de preprocesado activables
+    PRE_PERSPECTIVA: bool = True  # aplanar fotos de tarjetas/documentos tomadas en ángulo
     PRE_DESKEW: bool = True
     PRE_DENOISE: bool = True
     PRE_BINARIZAR: bool = True

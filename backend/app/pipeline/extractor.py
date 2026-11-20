@@ -157,6 +157,17 @@ def _limpiar_valor_combinado(linea: str) -> str:
     return " ".join(palabras)
 
 
+def _posicion_ancla_en_linea(linea_norm: str, ancla_norm: str) -> int:
+    """Posición del ancla en la línea, tolerando errores de OCR en la palabra ("nom8res" por "nombres"); -1 si no está."""
+    pos = linea_norm.find(ancla_norm)
+    if pos >= 0 or " " in ancla_norm:
+        return pos
+    for m in re.finditer(r"\S+", linea_norm):
+        if len(m.group()) >= 4 and fuzz.ratio(ancla_norm, m.group()) >= 80:
+            return m.start()
+    return -1
+
+
 def _valor_etiqueta_combinada(
     lineas: list[str], idx: int, ancla_norm: str, otras_anclas: tuple[str, ...]
 ) -> str | None:
@@ -165,10 +176,10 @@ def _valor_etiqueta_combinada(
     linea_norm = _normaliza(lineas[idx])
     if _RE_PARENTESCO.search(linea_norm):
         return None  # "Apellidos y nombres del padre": es de otra persona
-    propia = linea_norm.find(ancla_norm)
+    propia = _posicion_ancla_en_linea(linea_norm, ancla_norm)
     if propia < 0:
         return None
-    otras = [p for a in otras_anclas if (p := linea_norm.find(a)) >= 0]
+    otras = [p for a in otras_anclas if (p := _posicion_ancla_en_linea(linea_norm, a)) >= 0]
     if not otras:
         return None
     k = sum(1 for p in otras if p < propia)
@@ -183,6 +194,67 @@ def _valor_etiqueta_combinada(
         if len(valores) > k:
             return valores[k]
     return None
+
+
+# Palabras que solo aparecen en etiquetas de un documento de identidad (no en valores): una línea formada solo por
+# ellas, o por ruido, es una etiqueta ("CONDICIÓN CIUDADANÍA"), no el valor de la etiqueta anterior.
+_PALABRAS_ETIQUETA = frozenset(
+    "lugar fecha nacimiento nacionalidad sexo estado civil firma domicilio profesion instruccion conyuge padre madre "
+    "emision expedicion vencimiento numero cedula identidad identificacion registro condicion ciudadania ciudadano "
+    "autoidentificacion apellidos nombres titular cedulado".split()
+)
+
+
+def _sin_ruido(linea: str) -> str:
+    """Recorta los extremos de la línea que no tienen ni dos letras seguidas (restos de OCR: "#)", "[1]", "-")."""
+    palabras = linea.split()
+    sin_letras = lambda p: not re.search(r"[A-Za-z0-9ÁÉÍÓÚÑáéíóúñ]{2}", p)  # noqa: E731
+    while palabras and sin_letras(palabras[0]):
+        palabras.pop(0)
+    while palabras and sin_letras(palabras[-1]):
+        palabras.pop()
+    return " ".join(palabras)
+
+
+def _es_linea_de_etiqueta_o_ruido(linea: str) -> bool:
+    util = _sin_ruido(linea)
+    tokens = _PUNTUACION_TOKEN.sub(" ", _normaliza(util)).split()
+    if not any(len(t) >= 3 for t in tokens):
+        return True  # nada legible ("#)", "Ma", "..")
+    return all(t in _PALABRAS_ETIQUETA or (len(t) < 3 and not t.isdigit()) for t in tokens)
+
+
+_PUNTUACION_TOKEN = re.compile(r"[^\w\s]")
+
+
+def _valor_en_lineas_siguientes(
+    lineas: list[str], idx: int, ancla_norm: str, otras_anclas: tuple[str, ...], unir: int
+) -> str | None:
+    """Valor de una etiqueta cuyo texto está en las líneas de abajo: salta líneas que son otra etiqueta o ruido
+    ("CONDICIÓN CIUDADANÍA"), toma la primera con texto y, si `unir` > 1, las siguientes consecutivas (apellidos en
+    dos líneas) mientras sean texto de nombre (solo letras) y no una etiqueta/ancla."""
+    valores: list[str] = []
+    for linea in lineas[idx + 1 : idx + 1 + 5]:
+        norm = _normaliza(linea)
+        es_ancla = ancla_norm in norm or any(a in norm for a in otras_anclas)
+        if es_ancla or _es_linea_de_etiqueta_o_ruido(linea):
+            if valores:
+                break  # ya hay valor: lo siguiente es otra etiqueta
+            if es_ancla or _RE_OTRA_ETIQUETA.search(norm):
+                return None  # empieza OTRO campo ("FECHA DE NACIMIENTO"): este no tiene valor; no tomar el ajeno
+            continue  # etiqueta sin valor propio al lado ("CONDICIÓN CIUDADANÍA") o ruido: seguir buscando
+        util = _sin_ruido(linea)
+        if unir > 1:  # valores tipo nombre: restos cortos al final de la línea ("SOTO - Dn") son ruido del OCR
+            palabras = util.split()
+            while len(palabras) > 1 and (len(palabras[-1]) < 3 or not palabras[-1].isalpha()):
+                palabras.pop()
+            util = " ".join(palabras)
+        if valores and not re.fullmatch(r"[A-Za-zÁÉÍÓÚÑáéíóúñ ]+", util):
+            break  # solo se unen líneas que parecen nombre
+        valores.append(util)
+        if len(valores) >= max(1, unir):
+            break
+    return " ".join(valores) if valores else None
 
 
 def _extraer_ancla(
@@ -206,8 +278,10 @@ def _extraer_ancla(
                     return combinado, pagina.numero, _confianza_region(pagina.palabras, combinado) * (score / 100.0)
                 continue  # etiqueta de otro campo (p. ej. "... del Padre"): probar la siguiente candidata
             resto = " ".join(palabras_linea[fin_ancla:]).strip(" :.-\t")
+            if resto and _es_linea_de_etiqueta_o_ruido(resto):
+                resto = ""  # tras la ancla solo hay otra etiqueta o ruido: el valor está en las líneas siguientes
             if not resto and campo.regla.misma_linea and idx + 1 < len(lineas):
-                resto = lineas[idx + 1].strip()
+                resto = _valor_en_lineas_siguientes(lineas, idx, ancla_norm, otras_anclas, campo.regla.lineas) or ""
             if campo.regla.regex and resto:
                 flags = re.IGNORECASE if campo.regla.flags and "i" in campo.regla.flags else 0
                 m = re.search(campo.regla.regex, resto, flags)
@@ -248,6 +322,34 @@ def _extraer_zona(campo: CampoPlantillaDTO, paginas: list[PaginaOCR]) -> tuple[s
     return texto, num_pagina, conf
 
 
+_RE_FECHA_SUELTA = re.compile(
+    r"(?<![\w/-])(?:([0-9lIO|]{1,2})[ .]{1,2}([A-Za-z]{3,10})[ .]{1,2}(\d{4})|(\d{1,2}[/-]\d{1,2}[/-]\d{4})|(\d{4}-\d{2}-\d{2}))(?!\d)"
+)
+_RE_CONTEXTO_OTRA_FECHA = re.compile(r"venc|emis|expedic|caduc")
+_DIGITO_CONFUNDIDO = str.maketrans({"l": "1", "I": "1", "|": "1", "O": "0"})
+
+
+def _fecha_nacimiento_sin_etiqueta(paginas: list[PaginaOCR]) -> tuple[str | None, int | None, float]:
+    """Respaldo cuando la etiqueta "FECHA DE NACIMIENTO" salió ilegible: la primera fecha del documento que no esté
+    junto a "vencimiento/emisión" y que sea una fecha pasada plausible. Confianza reducida: es una inferencia."""
+    from datetime import date
+
+    from .validadores import validar_fecha
+
+    for pagina in paginas:
+        for m in _RE_FECHA_SUELTA.finditer(pagina.texto):
+            if _RE_CONTEXTO_OTRA_FECHA.search(_normaliza(pagina.texto[max(0, m.start() - 60) : m.start()])):
+                continue
+            texto = f"{m.group(1).translate(_DIGITO_CONFUNDIDO)} {m.group(2)} {m.group(3)}" if m.group(1) else m.group(0)
+            iso, valido = validar_fecha(texto)
+            if not valido or not iso:
+                continue
+            if not ("1900-01-01" <= iso <= date.today().isoformat()):
+                continue  # una fecha futura es de vencimiento, no de nacimiento
+            return texto, pagina.numero, _confianza_region(pagina.palabras, m.group(0)) * 0.6
+    return None, None, 0.0
+
+
 def extraer_campo(
     campo: CampoPlantillaDTO, paginas: list[PaginaOCR], otras_anclas: tuple[str, ...] = ()
 ) -> CampoExtraidoDTO:
@@ -260,6 +362,9 @@ def extraer_campo(
         valor_texto, pagina, conf_ocr = _extraer_zona(campo, paginas)
     else:
         valor_texto, pagina, conf_ocr = None, None, 0.0
+
+    if valor_texto is None and campo.tipo_dato == "fecha" and "nacimiento" in _normaliza(f"{campo.nombre} {campo.etiqueta}"):
+        valor_texto, pagina, conf_ocr = _fecha_nacimiento_sin_etiqueta(paginas)
 
     valor_norm, valido = validar_normalizar(campo.tipo_dato, valor_texto)
     # confianza combinada: OCR de la región * (1.0 si el validador aceptó, penaliza si no)
