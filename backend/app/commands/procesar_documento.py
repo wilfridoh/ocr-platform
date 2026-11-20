@@ -17,6 +17,7 @@ from ..pipeline.ingesta import ErrorIngesta, extension_de
 from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
 from ..persistencia import repositorios as repo
 from ._convertir import campos_de_version, diseno_de_version, palabras_clave_de_version
+from ._coincidencia import evaluar_coincidencia
 from .errores import DocumentoPurgado  # noqa: F401  (reexportado)
 
 
@@ -131,6 +132,7 @@ def _procesar_documento(
         t0 = time.perf_counter()
         campos_dto: list[CampoExtraidoDTO] = []
         obligatorios: set[str] = set()
+        coincidencia: dict | None = None
         if version_ganadora:
             campos_plantilla = campos_de_version(version_ganadora)
             obligatorios = {c.nombre for c in campos_plantilla if c.obligatorio}
@@ -142,12 +144,16 @@ def _procesar_documento(
                 settings.OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS,
                 diseno_de_version(version_ganadora),
             )
+            coincidencia = evaluar_coincidencia(
+                db, paginas, campos_plantilla, diseno_de_version(version_ganadora), campos_dto, clasificacion
+            )
         tiempos["extraccion"] = int((time.perf_counter() - t0) * 1000)
 
         tiempos["total"] = int((time.perf_counter() - t_total) * 1000)
 
         resultado = ensamblador_mod.ensamblar(
-            paginas, clasificacion, campos_dto, palabras_clave_encontradas, obligatorios, tiempos, motor_usado
+            paginas, clasificacion, campos_dto, palabras_clave_encontradas, obligatorios, tiempos, motor_usado,
+            coincidencia,
         )
 
         repo.guardar_resultado(
@@ -166,6 +172,7 @@ def _procesar_documento(
             campos=[c.model_dump() for c in campos_dto],
             palabras_json=posiciones.palabras_json(paginas),
             recorte_json=posiciones.recorte_json(paginas),
+            coincidencia=coincidencia,
         )
         sin_coincidencia = flujo is not None and clasificacion.tipo == "desconocido"
         repo.actualizar_estado_documento(db, documento, "NO_COINCIDE" if sin_coincidencia else "COMPLETADO")

@@ -80,8 +80,13 @@ def test_plantilla_guarda_y_devuelve_el_diseno_por_version(entorno):
     assert p["diseno"]["relacion"] == 1.586 and p["diseno"]["elementos_fijos"][0]["texto_esperado"] == "ENCABEZADO"
     assert p["campos"][0]["regla"]["zona_etiqueta"]["texto_esperado"] == "APELLIDOS"
     assert p["campos"][0]["regla"]["x"] == 0.3
-    # nueva versión sin diseño: la versión actual queda sin cuadrícula (el diseño anterior sigue en su versión)
+    # un cliente que no conoce la cuadrícula (sin la clave "diseno") no la borra: la versión nueva la hereda
     r = client.put(f"/api/plantillas/{pid}", headers=H, json=_definicion(None))
+    assert r.status_code == 200, r.text
+    p2 = client.get(f"/api/plantillas/{pid}", headers=H).json()
+    assert p2["version"] == p["version"] + 1 and p2["diseno"]["relacion"] == 1.586
+    # para quitarla hay que pedirlo explícitamente con "diseno": null (el diseño anterior sigue en su versión)
+    r = client.put(f"/api/plantillas/{pid}", headers=H, json={**_definicion(None), "diseno": None})
     assert r.status_code == 200, r.text
     assert client.get(f"/api/plantillas/{pid}", headers=H).json()["diseno"] is None
     # diseño inválido: 422 sin crear versión

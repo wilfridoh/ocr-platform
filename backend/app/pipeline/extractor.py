@@ -13,7 +13,7 @@ from rapidfuzz.distance import Levenshtein
 
 from ..dominio.modelos import CampoExtraidoDTO, CampoPlantillaDTO, DisenoPlantilla, PaginaOCR, PalabraOCR
 from .validadores import validar_normalizar
-from .zonas import MarcoPagina, calcular_marcos, texto_en_zona, zona_valor
+from .zonas import MarcoPagina, calcular_marcos, girar_paginas_180, orientar_paginas, texto_en_zona, zona_valor
 
 logger = logging.getLogger(__name__)
 
@@ -687,7 +687,9 @@ def extraer_campos(
     siempre la segunda opinión, que es lenta. Si la relectura entra por otro campo, los opcionales vacíos también
     se reintentan.
 
-    Con `diseno` (plantilla con cuadrícula, docs/13) cada campo con zona de valor combina etiqueta y zona."""
+    Con `diseno` (plantilla con cuadrícula, docs/13) cada campo con zona de valor combina etiqueta y zona, y una página
+    que encaja mejor girada 180° se gira en el lugar (cajas y orientación del recorte)."""
+    giradas = orientar_paginas(paginas, campos, diseno)
     marcos = calcular_marcos(paginas, campos, diseno)
     resultados = [extraer_campo(c, paginas, _otras_anclas(c, campos), marcos) for c in campos]
     if segunda_opinion is None:
@@ -707,10 +709,11 @@ def extraer_campos(
     if not alt:
         return resultados
     if diseno is not None:
-        # el segundo motor lee la MISMA imagen procesada: mismo recorte, mismas coordenadas relativas
+        # el segundo motor lee la MISMA imagen procesada: mismas cajas relativas, mismo giro y mismo recorte
+        girar_paginas_180(alt, giradas)
         recortes = {p.numero: p.recorte for p in paginas}
         for p in alt:
-            p.recorte = p.recorte or recortes.get(p.numero)
+            p.recorte = recortes.get(p.numero) or p.recorte
     marcos_alt = calcular_marcos(alt, campos, diseno)
     for i in pendientes:
         alternativo = extraer_campo(campos[i], alt, _otras_anclas(campos[i], campos), marcos_alt)

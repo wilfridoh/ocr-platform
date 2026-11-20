@@ -344,10 +344,18 @@ export default function ZonasPlantilla() {
       </div>
 
       {pestana === 'validar' ? (
-        <div className="tarjeta p-6 text-sm text-slate-600">
-          <b>Validar un documento</b> llega con la siguiente entrega del backend (puntaje de coincidencia de diseño). Por ahora
-          puedes comprobar la extracción con «Probar» en la plantilla: los campos con zona ya se leen por posición y avisan si
-          quedaron fuera de su zona.
+        <div className="tarjeta flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-slate-600">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-400" aria-hidden>
+            ◎
+          </span>
+          <b className="text-slate-800">Disponible próximamente</b>
+          <p className="max-w-md">
+            Aquí verás el puntaje de coincidencia de diseño de un documento con esta plantilla. Mientras tanto, los campos con zona
+            ya se leen por posición al procesar y avisan si quedaron fuera de su zona.
+          </p>
+          <button type="button" className="boton-secundario" disabled>
+            Validar documento
+          </button>
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_330px]">
@@ -468,7 +476,11 @@ export default function ZonasPlantilla() {
                         ))}
                       </>
                     )}
-                    <span className="text-xs text-slate-500">— arrastra sobre las celdas, o haz clic en una palabra</span>
+                    <span className="text-xs text-slate-500">
+                      {objetivo.tipo === 'campo' && tipoZona === 'valor'
+                        ? '— arrastra sobre las celdas, o haz clic en una palabra'
+                        : '— haz clic sobre la palabra impresa; arrastrar puede incluir el dato de abajo'}
+                    </span>
                   </div>
                 )}
 

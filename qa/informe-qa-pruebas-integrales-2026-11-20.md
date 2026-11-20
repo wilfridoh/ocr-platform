@@ -372,6 +372,21 @@ Resultado: correcto. Veredicto: **aprobado**.
 
 Pendiente para pruebas finales (se suma a la lista de la nota anterior): escenarios de "Ajustar esquinas"/girar/"Usar de todos modos" con recorte no fiable, "Quitar recorte manual" desde la UI, elementos fijos, ancho móvil, y la pestaña "Validar un documento" (llega con la entrega 4).
 
-## 18. Limpieza al cierre
+## 19. Cuadrícula de zonas, entrega 4: coincidencia de diseño, orientación, /probar (2026-11-20, mismo día), nivel ligero
+
+Qué se probó: pytest **300/300** (1 corrida). Migración 011 (`Resultado.CoincidenciaJson`) ejecutada por mí 2 veces contra la BD real y verificada con consulta (NVARCHAR(MAX) NULL, CHECK `ISJSON`). `tsc` del anexo de frontend, limpio.
+
+Humo con 2 plantillas de prueba propias (inactivas, forzadas por `plantilla_id`) sobre la misma tarjeta sintética:
+- a) etiquetas en su sitio real → `coincidencia.veredicto = "coincide"`, puntaje 1.0.
+- b) etiquetas movidas lejos de su zona → `veredicto = "parcial"` (puntaje 0.35, justo en el margen parcial de 0.15 bajo el umbral 0.5 que define `zonas.py`); confirma que el puntaje baja como corresponde cuando las etiquetas no están donde se esperaba. No alcancé a construir un caso que cruzara a `"no_coincide"` (y su advertencia) dentro del nivel ligero — queda para pruebas finales.
+- c) plantilla semilla sin diseño (`cedula_identidad`): `"coincidencia": null`, mismo tipo/campos/tiempos que siempre.
+- d) `PUT` de la plantilla de prueba **sin** la clave `"diseno"` en el cuerpo: el diseño se conserva igual (confirmado `relacion` intacta) — protege al MCP y otros clientes, como se pidió.
+- Además probé `POST /probar` con las posiciones guardadas (antes solo usaba el texto): devuelve el mismo bloque `coincidencia`, sin guardar nada.
+
+Resultado: correcto. Veredicto: **aprobado**.
+
+Pendiente para pruebas finales: cruzar el caso a `"no_coincide"` con su advertencia; orientación automática 90°/180° (releer, conservar solo la manual al reprocesar); el resto de la lista acumulada en las secciones anteriores.
+
+## 20. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.

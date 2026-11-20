@@ -109,6 +109,16 @@ Columnas nuevas en `Resultado`:
 | `RecorteJson NVARCHAR(MAX) NULL` | Por página guarda solo hechos: `{aplicado, origen: "automatico"\|"manual"\|"ninguno"\|"pdf", esquinas, relacion, orientacion, deskew}`. Las `esquinas` son las 4, relativas a la imagen original. `recorte_confiable` **se calcula al leer**, comparando `relacion` con el formato de la plantilla, y no se guarda. |
 | `CoincidenciaJson NVARCHAR(MAX) NULL` | El bloque `coincidencia` del resultado (§3.3). Llega en la entrega 4, con su propia migración. |
 
+**Implementado en la entrega 4:**
+- Coincidencia de diseño (§3; `pipeline/zonas.py::calcular_coincidencia`), guardada en `Resultado.CoincidenciaJson`
+  (migración 011) y devuelta como `coincidencia` en el resultado, en `/probar` y en el MCP.
+- Advertencias `diseno_no_coincide` y `diseno_no_verificable`.
+- Sugerencia de otra plantilla (`coincidencia.sugerencia`).
+- Orientación 90°/180° (§4.3).
+- `/probar` con las posiciones guardadas y con `campos`/`diseno` sin guardar en el cuerpo.
+- Un PUT de plantilla **sin** la clave `diseno` hereda el de la versión anterior; para quitarlo hay que mandar
+  `"diseno": null`. Protege al MCP y a clientes antiguos.
+
 **Implementado en la entrega 3:**
 - Extracción zona + etiqueta (§2.2–2.3; `pipeline/zonas.py`) y advertencia `campo_fuera_de_zona`.
 - `DELETE /api/documentos/{id}/paginas/{n}/recorte`: quita el recorte manual y reprocesa con el automático.
@@ -199,8 +209,9 @@ Para cada etiqueta fija (de un campo o elemento fijo):
 - se buscan las palabras **dentro de su zona**, ya desplazada y con tolerancia;
 - se calcula la similitud con `texto_esperado`: `fuzz.ratio` normalizado, sin tildes ni mayúsculas.
 
-Si no aparece en su zona, se busca en toda la página: en ese caso cuenta para la similitud, pero queda marcada
-`parcial` (desplazada).
+Si no aparece en su zona, se busca en toda la página. En ese caso queda marcada `parcial` (desplazada) y aporta
+**la mitad** de su similitud al término de etiquetas. Este ajuste se agregó en la entrega 4: sin él, un documento con
+otra disposición de las mismas etiquetas sumaba 0,7 solo por contenerlas y salía «parcial» en vez de «no coincide».
 
 | Estado por zona | Condición |
 |---|---|
@@ -209,7 +220,7 @@ Si no aparece en su zona, se busca en toda la página: en ese caso cuenta para l
 | `no_coincide` | Similitud < 0,6, o no aparece. |
 
 ```
-etiquetas  = media de la similitud de cada etiqueta (0 si no aparece)
+etiquetas  = media por etiqueta de: similitud (en su zona) · similitud × 0,5 (fuera de su zona) · 0 (no aparece)
 alineacion = 1 − min(1, desplazamiento_medio / (2 · tolerancia))
 puntaje    = 0,7 · etiquetas + 0,3 · alineacion
 ```
@@ -219,8 +230,14 @@ puntaje    = 0,7 · etiquetas + 0,3 · alineacion
   según la rejilla elegida. La UI puede **mostrar** el desplazamiento en celdas convirtiéndolo con su densidad.
 - **Ajuste 2: el desplazamiento medio solo se calcula con las etiquetas encontradas.** Una etiqueta ilegible no tiene
   posición, y ya penaliza en el término de etiquetas.
-- **No verificable.** Si menos de la mitad de las etiquetas son legibles, el resultado es `verificable: false` en vez
-  de "No coincide". Así no se acusa de distinto a un documento que solo está borroso.
+- **No verificable.** El resultado es `verificable: false` (sin puntaje ni veredicto, advertencia
+  `diseno_no_verificable`) en vez de «No coincide» en estos casos:
+  - no hay recorte fiable;
+  - la plantilla no tiene etiquetas fijas;
+  - menos de la mitad de las etiquetas son legibles (similitud ≥ 0,6).
+  Así no se acusa de distinto a un documento que solo está borroso o mal recortado.
+- **Comprobación de escala: pendiente.** Comparar distancias entre etiquetas encontradas con las de sus zonas sale
+  sesgado cuando las zonas se dibujan holgadas. Se evaluará con el corpus real antes de usarla.
 - **Calibración del umbral (80 % en la maqueta).** Lo dejaría como valor inicial, pero hay que calibrarlo con un corpus
   real antes de usarlo para algo más que informar (§6.3).
 
@@ -250,10 +267,11 @@ MCP). Usa los nombres de UX:
   "valores_legibles": 5, "valores_total": 6,
   "recorte_confiable": true, "recorte_origen": "automatico", "orientacion": 0,
   "zonas": [
-    {"campo": "apellidos", "tipo": "etiqueta", "estado": "coincide", "esperado": "APELLIDOS", "leido": "APELLIDOS",
+    {"campo": "apellidos", "tipo": "etiqueta", "estado": "coincide", "esperado": "APELLIDOS", "leido": "APELLIDOS", "similitud": 1.0,
      "x": 0.31, "y": 0.21, "ancho": 0.14, "alto": 0.05},
     {"campo": "apellidos", "tipo": "valor", "estado": "coincide", "leido_ok": true}
-  ]
+  ],
+  "sugerencia": null
 }
 ```
 
@@ -351,15 +369,30 @@ Comportamiento sin recorte fiable:
 
 - **Paddle ya corrige 180° por línea** (`use_angle_cls=True`): el texto se lee bien, pero las posiciones quedan
   invertidas.
-- **Un giro de 90°** hoy no se corrige.
 
-Propuesta, sin OCR extra:
+Implementado en la entrega 4. Ninguna de las dos reglas depende del formato del documento:
 
-1. **Vertical tras el recorte:** se gira 90° antes del OCR, con coste ~0. Así siempre queda horizontal.
-2. **Duda entre 0° y 180°**, en plantillas con diseño: se calcula el puntaje con las cajas tal cual y rotadas 180°
-   (una transformación de coordenadas, sin releer). Gana la mayor, se informa `orientacion` y la imagen enderezada se
-   sirve ya girada.
-3. **Sin diseño:** se toma la orientación del clasificador de ángulo de Paddle, por mayoría de líneas.
+1. **Texto de lado (90°)** (`pipeline/orquestador.py::fraccion_vertical`):
+   - Condición: el 60 % o más de las palabras (con al menos 5 de 3 o más letras) tienen la caja claramente más alta
+     que ancha.
+   - Acción: la imagen procesada se gira 90° en sentido horario y se **relee**. Se queda la lectura con menos texto
+     de lado.
+   - Coste: un OCR extra (1–3 s) **solo** en esas páginas.
+   - No se aplica si la página tiene un giro manual.
+   - Se anota `orientacion` (+90) y `orientacion_auto: true`.
+   - La segunda opinión lee la imagen ya girada.
+   - Antes la propuesta era «girar si el recorte queda vertical», pero eso giraba también los documentos verticales
+     de verdad (una hoja A4).
+2. **Cabeza abajo (180°)**, solo en plantillas con diseño (`pipeline/zonas.py::orientar_paginas`):
+   - Se calculan las etiquetas en su sitio con las cajas tal cual y giradas 180° (sin releer).
+   - Se gira solo si la versión girada tiene **más** etiquetas en su sitio, **al menos 2** y **al menos la mitad**.
+     Con una sola etiqueta es fácil acertar por azar.
+   - Las cajas se giran en el lugar y el recorte anota `orientacion` (+180) y `orientacion_auto`, así que
+     `/palabras` y `/enderezada` quedan coherentes.
+3. **Al reprocesar** se conserva solo la orientación que pidió una persona (`orientacion_manual`). Los giros
+   automáticos se vuelven a decidir.
+4. **Sin diseño:** ver la regla 1. El 180° lo resuelve el clasificador de ángulo de Paddle para el texto; las
+   posiciones no importan porque no hay zonas.
 
 ## 5. Sugeridor de palabras clave (`pipeline/sugeridor.py`)
 
@@ -459,7 +492,7 @@ Orden sugerido:
 | `DELETE /api/documentos/{id}/paginas/{n}/recorte` | **Nuevo (entrega 3).** Quita el recorte y el giro manuales de la página, reprocesa con la detección automática y devuelve el resultado. |
 | `POST /api/documentos/{id}/paginas/{n}/recorte` | **Nuevo.** Cuerpo: `{esquinas: [[x,y]×4], orientacion?: 0\|90\|180\|270}`, con las esquinas relativas a la imagen original. `orientacion` sirve para el «Girar 90°» manual que pidió UX. Valida, guarda (`origen: "manual"`) y reprocesa con esas esquinas. Devuelve el resultado; la imagen se vuelve a pedir a `…/enderezada`. |
 | `GET/PUT /api/plantillas/{id}` | `version.diseno` (§1.2) y `campo.regla.zona_etiqueta` (§1.1). La zona de valor usa `x, y, ancho, alto` de la regla. Guardar crea una versión nueva. |
-| `POST /api/plantillas/{id}/probar` | Usa las cajas guardadas y devuelve `coincidencia`. Acepta en el cuerpo un `diseno` y unas reglas sin guardar, para la pestaña "Validar un documento" mientras se editan las zonas. |
+| `POST /api/plantillas/{id}/probar` | **Entrega 4.** Usa las posiciones guardadas (antes: solo el texto) y devuelve `coincidencia`. Cuerpo opcional `{campos?, diseno?}` con cambios sin guardar, para la vista previa del editor. `"diseno": null` explícito prueba sin cuadrícula. No guarda nada. |
 | `GET /api/documentos/{id}/resultado` | Bloque `coincidencia` (§3.3) y advertencias nuevas. |
 | `POST /api/plantillas/sugerir` | De 1 a **3** `documento_id` (más no mejora y alarga el asistente); `revisar` por sugerencia; `zonas_sugeridas`. |
 

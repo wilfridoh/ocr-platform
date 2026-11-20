@@ -195,6 +195,8 @@ class ResultadoDTO(BaseModel):
     advertencias: list[str]
     tiempos_ms: dict[str, int]
     motor_ocr: str
+    # coincidencia de DISEÑO con la plantilla (docs/13 §3.3); None si la plantilla no tiene cuadrícula
+    coincidencia: Optional[dict[str, Any]] = None
 
     def a_contrato(self, documento_id: str, archivo: str, estado: str = "COMPLETADO") -> dict:
         """JSON del contrato (docs/01 sección 5)."""
@@ -221,6 +223,7 @@ class ResultadoDTO(BaseModel):
             "confianza_global": round(self.confianza_global, 3),
             "advertencias": self.advertencias,
             "tiempos_ms": self.tiempos_ms,
+            "coincidencia": self.coincidencia,
         }
 
 

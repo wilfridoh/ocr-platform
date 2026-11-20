@@ -203,3 +203,161 @@ def zona_valor(campo: CampoPlantillaDTO) -> ZonaRelativa | None:
         return ZonaRelativa(x=r.x, y=r.y, ancho=min(r.ancho, 1 - r.x), alto=min(r.alto, 1 - r.y), pagina=r.pagina)
     except ValueError:  # regla antigua con coordenadas fuera de 0-1: sin zona
         return None
+
+
+# ------------------------------------------------------------------ orientación 0° / 180° (docs/13 §4.3)
+def _girar_180(pagina: PaginaOCR) -> PaginaOCR:
+    """La misma página con las cajas de las palabras giradas 180° (el texto ya lo leyó bien el clasificador de ángulo
+    del motor; lo que queda invertido son las posiciones)."""
+    w, h = pagina.ancho, pagina.alto
+    palabras = [p.model_copy(update={"x": w - p.x - p.ancho, "y": h - p.y - p.alto}) for p in pagina.palabras]
+    recorte = dict(pagina.recorte or {})
+    recorte["orientacion"] = (int(recorte.get("orientacion") or 0) + 180) % 360
+    recorte["orientacion_auto"] = True  # decidido por el sistema: un reproceso lo vuelve a decidir, no lo fija
+    return pagina.model_copy(update={"palabras": palabras, "recorte": recorte})
+
+
+MIN_ETIQUETAS_GIRO = 2
+
+
+def _en_sitio(marco: MarcoPagina) -> int:
+    return sum(e.dentro for e in marco.etiquetas)
+
+
+def orientar_paginas(paginas: list[PaginaOCR], campos: list[CampoPlantillaDTO], diseno: DisenoPlantilla | None) -> set[int]:
+    """Con diseño: si una página encaja claramente mejor girada 180° (más etiquetas fijas en su sitio), se gira EN EL
+    LUGAR (cajas de las palabras y orientación de su recorte), así lo que se guarda queda coherente con la imagen
+    enderezada. Coste: un cálculo de marcos más por página, sin releer nada. Devuelve los números de página girados."""
+    giradas: set[int] = set()
+    if diseno is None:
+        return giradas
+    for pagina in paginas:
+        if not pagina.palabras or not recorte_confiable(pagina.recorte, diseno.relacion):
+            continue
+        girada = _girar_180(pagina)
+        normal = calcular_marcos([pagina], campos, diseno).get(pagina.numero)
+        invertida = calcular_marcos([girada], campos, diseno).get(pagina.numero)
+        # exige evidencia: al menos 2 etiquetas, y la mitad, en su sitio girada (con una sola es fácil acertar por azar)
+        if (
+            normal is not None and invertida is not None
+            and _en_sitio(invertida) > _en_sitio(normal)
+            and _en_sitio(invertida) >= MIN_ETIQUETAS_GIRO
+            and _en_sitio(invertida) * 2 >= len(invertida.etiquetas)
+        ):
+            pagina.palabras, pagina.recorte = girada.palabras, girada.recorte
+            giradas.add(pagina.numero)
+    return giradas
+
+
+def girar_paginas_180(paginas: list[PaginaOCR], numeros: set[int]) -> None:
+    """Aplica el mismo giro (en el lugar) a otra lectura de las mismas imágenes: la segunda opinión."""
+    for p in paginas:
+        if p.numero in numeros:
+            g = _girar_180(p)
+            p.palabras, p.recorte = g.palabras, g.recorte
+
+
+# ------------------------------------------------------------------ coincidencia de diseño (docs/13 §3)
+PESO_ETIQUETAS = 0.7
+PESO_ALINEACION = 0.3
+MARGEN_PARCIAL = 0.15  # "parcial" entre umbral - 0,15 y umbral (pedido de UX)
+FACTOR_FUERA_DE_ZONA = 0.5  # una etiqueta leída fuera de su zona aporta la mitad de su similitud al término de etiquetas
+
+
+def _distancia_a_zona(marco: MarcoPagina, e: EtiquetaEncontrada) -> float:
+    z = e.etiqueta.zona
+    t = marco.tolerancia
+    dx = _fuera(e.cx, z.x - t + marco.dx, z.x + z.ancho + t + marco.dx)
+    dy = _fuera(e.cy, z.y - t + marco.dy, z.y + z.alto + t + marco.dy)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def calcular_coincidencia(
+    paginas: list[PaginaOCR],
+    campos: list[CampoPlantillaDTO],
+    diseno: DisenoPlantilla | None,
+    extraidos: list | None = None,
+    orientacion: int | None = None,
+) -> dict | None:
+    """Puntaje de coincidencia de DISEÑO (no de autenticidad): 70 % etiquetas fijas (similitud del texto leído en su
+    zona) + 30 % alineación (desplazamiento residual medio, en fracción de la página). None sin diseño.
+
+    `extraidos` (CampoExtraidoDTO) informa el estado de las zonas de valor sin repetir el dato: leido_ok."""
+    if diseno is None:
+        return None
+    marcos = calcular_marcos(paginas, campos, diseno)
+    confiable = any(m.confiable for m in marcos.values())
+    etiquetas = [(m, e) for m in marcos.values() for e in m.etiquetas]
+    zonas: list[dict] = []
+    similitudes, distancias, ok = [], [], 0
+    for marco, e in etiquetas:
+        encontrada = e.similitud >= SIMILITUD_MINIMA and e.cx is not None
+        if e.similitud >= SIMILITUD_ETIQUETA and e.dentro:
+            estado = "coincide"
+            ok += 1
+        elif encontrada:
+            estado = "parcial"
+        else:
+            estado = "no_coincide"
+        # fuera de su zona solo aporta la mitad: si no, un documento con OTRA disposición de las mismas etiquetas
+        # sumaría 0,7 solo por contenerlas
+        similitudes.append(0.0 if not encontrada else (e.similitud if e.dentro else e.similitud * FACTOR_FUERA_DE_ZONA))
+        if encontrada:
+            distancias.append(_distancia_a_zona(marco, e))
+        z = e.etiqueta.zona
+        zonas.append({
+            "campo": e.etiqueta.campo, "tipo": "etiqueta", "estado": estado, "esperado": e.etiqueta.texto_esperado,
+            "leido": e.leido if encontrada else None, "similitud": round(e.similitud, 3),
+            "x": z.x, "y": z.y, "ancho": z.ancho, "alto": z.alto, "pagina": z.pagina or 1,
+        })
+    por_nombre = {c.nombre: c for c in (extraidos or [])}
+    valores_total = valores_ok = 0
+    for campo in campos:
+        z = zona_valor(campo)
+        if z is None:
+            continue
+        valores_total += 1
+        r = por_nombre.get(campo.nombre)
+        leido_ok = bool(r is not None and r.valido and r.valor_texto)
+        valores_ok += leido_ok
+        estado = "no_coincide" if not leido_ok else ("parcial" if getattr(r, "fuera_de_zona", False) else "coincide")
+        zonas.append({"campo": campo.nombre, "tipo": "valor", "estado": estado, "leido_ok": leido_ok,
+                      "x": z.x, "y": z.y, "ancho": z.ancho, "alto": z.alto, "pagina": z.pagina or 1})
+
+    legibles = sum(1 for _, e in etiquetas if e.similitud >= SIMILITUD_MINIMA and e.cx is not None)
+    verificable = confiable and bool(etiquetas) and legibles * 2 >= len(etiquetas)
+    termino_etiquetas = sum(similitudes) / len(similitudes) if similitudes else 0.0
+    desplazamiento = sum(distancias) / len(distancias) if distancias else None
+    alineacion = 0.0 if desplazamiento is None else 1 - min(1.0, desplazamiento / max(1e-6, 2 * diseno.tolerancia))
+    puntaje = PESO_ETIQUETAS * termino_etiquetas + PESO_ALINEACION * alineacion
+    umbral = diseno.umbral_coincidencia
+    veredicto = None
+    if verificable:
+        veredicto = "coincide" if puntaje >= umbral else ("parcial" if puntaje >= umbral - MARGEN_PARCIAL else "no_coincide")
+    primera = paginas[0] if paginas else None
+    recorte = (primera.recorte or {}) if primera else {}
+    return {
+        "verificable": verificable,
+        "puntaje": round(puntaje, 3) if verificable else None,
+        "umbral": umbral,
+        "veredicto": veredicto,
+        "etiquetas_ok": ok,
+        "etiquetas_total": len(etiquetas),
+        "desplazamiento_medio": round(desplazamiento, 4) if desplazamiento is not None else None,
+        "valores_legibles": valores_ok,
+        "valores_total": valores_total,
+        "recorte_confiable": confiable,
+        "recorte_origen": recorte.get("origen") or "desconocido",
+        "orientacion": orientacion if orientacion is not None else int(recorte.get("orientacion") or 0),
+        "zonas": zonas,
+    }
+
+
+def advertencias_coincidencia(coincidencia: dict | None) -> list[str]:
+    if not coincidencia:
+        return []
+    if not coincidencia["verificable"]:
+        return ["diseno_no_verificable"]
+    if coincidencia["veredicto"] == "no_coincide":
+        return ["diseno_no_coincide"]
+    return []

@@ -102,8 +102,11 @@ export function palabraEn(palabras: PalabraPosicion[], x: number, y: number): Pa
   return bajo.sort((a, b) => a.ancho * a.alto - b.ancho * b.alto)[0] ?? null
 }
 
-/** Paleta por campo (distinta de los colores de estado verde/ámbar/rojo). */
-const PALETA = ['#4f46e5', '#0d9488', '#c026d3', '#ea580c', '#0284c7', '#65a30d', '#7c3aed', '#ca8a04', '#be185d', '#475569']
+/**
+ * Paleta por campo, distinta de los colores de estado (verde/ámbar/rojo). Todos con contraste AA (>= 4,5:1) para el
+ * texto blanco del badge; el badge lleva siempre el nombre del campo, no se depende solo del color.
+ */
+const PALETA = ['#4f46e5', '#0f766e', '#a21caf', '#c2410c', '#0369a1', '#7c3aed', '#be185d', '#155e75', '#57534e', '#475569']
 
 export function colorCampo(indice: number): string {
   return PALETA[indice % PALETA.length]

@@ -89,8 +89,15 @@ def crear_plantilla(db: Session, datos: PlantillaCrear) -> m.Plantilla:
 
 
 def nueva_version_plantilla(db: Session, plantilla: m.Plantilla, datos: PlantillaCrear) -> m.Plantilla:
-    """PUT /plantillas/{id}: crea una nueva versión sin perder el historial."""
+    """PUT /plantillas/{id}: crea una nueva versión sin perder el historial.
+
+    Si el cuerpo NO trae la clave "diseno" (cliente que no conoce la cuadrícula: MCP, editor antiguo), la versión nueva
+    hereda el diseño de la actual; para quitarlo hay que mandar "diseno": null explícitamente."""
     ultimo_numero = max((v.Numero for v in plantilla.versiones), default=0)
+    if "diseno" not in datos.model_fields_set and plantilla.version_actual is not None and plantilla.version_actual.DisenoJson:
+        from ..dominio.modelos import DisenoPlantilla
+
+        datos = datos.model_copy(update={"diseno": DisenoPlantilla.model_validate_json(plantilla.version_actual.DisenoJson)})
     version = m.PlantillaVersion(
         PlantillaId=plantilla.PlantillaId,
         Numero=ultimo_numero + 1,
@@ -236,6 +243,7 @@ def guardar_resultado(
     campos: list[dict],
     palabras_json: str | None = None,
     recorte_json: str | None = None,
+    coincidencia: dict | None = None,
 ) -> m.Resultado:
     existente = db.execute(select(m.Resultado).where(m.Resultado.DocumentoId == documento.DocumentoId)).scalars().first()
     if existente:
@@ -256,6 +264,7 @@ def guardar_resultado(
         MotorOcr=motor_ocr,
         PalabrasJson=palabras_json,
         RecorteJson=recorte_json,
+        CoincidenciaJson=json.dumps(coincidencia, ensure_ascii=False) if coincidencia is not None else None,
     )
     db.add(resultado)
     db.flush()

@@ -6,7 +6,19 @@ import time
 from ..dominio.modelos import PaginaOCR
 from . import ocr as ocr_mod
 from .ingesta import DocumentoIngresado, ingerir
-from .preprocesado import OpcionesPreprocesado, preprocesar_detalle
+from .preprocesado import OpcionesPreprocesado, girar, preprocesar_detalle
+
+FRACCION_VERTICAL = 0.6  # con más de esta fracción de palabras "de pie", el texto está de lado
+MIN_PALABRAS_ORIENTACION = 5
+
+
+def fraccion_vertical(pagina: PaginaOCR) -> float:
+    """Fracción de palabras cuya caja es claramente más alta que ancha (texto girado 90°). 0 con pocas palabras: no
+    hay base para girar nada. No depende del formato del documento."""
+    palabras = [p for p in pagina.palabras if len(p.texto.strip()) >= 3]
+    if len(palabras) < MIN_PALABRAS_ORIENTACION:
+        return 0.0
+    return sum(1 for p in palabras if p.alto > 1.5 * p.ancho) / len(palabras)
 
 
 class ErrorPipeline(RuntimeError):
@@ -74,6 +86,16 @@ def procesar_bytes(
     try:
         for i, img in enumerate(imagenes_proc):
             pagina, motor_usado = ocr_mod.leer_pagina(img, settings, idioma)
+            manual = recortes_manuales.get(i + 1) or {}
+            if not manual.get("orientacion") and fraccion_vertical(pagina) >= FRACCION_VERTICAL:
+                # texto de lado (foto girada 90°): se gira la imagen procesada y se relee; queda la lectura horizontal
+                girada = girar(img, 90)
+                pagina_girada, motor_girado = ocr_mod.leer_pagina(girada, settings, idioma)
+                if fraccion_vertical(pagina_girada) < fraccion_vertical(pagina):
+                    pagina, motor_usado, img = pagina_girada, motor_girado, girada
+                    imagenes_proc[i] = girada
+                    recortes[i] = dict(recortes[i], orientacion=(int(recortes[i].get("orientacion") or 0) + 90) % 360, orientacion_auto=True)
+                    pasos_por_pagina[i] = [*pasos_por_pagina[i], "giro(90,auto)"]
             pagina.numero = i + 1
             pagina.motor = motor_usado
             pagina.pasos_preprocesado = pasos_por_pagina[i]

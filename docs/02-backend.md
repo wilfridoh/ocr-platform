@@ -86,8 +86,8 @@ Base: `http://localhost:8000/api`. Todas las rutas requieren cabecera `X-API-Key
 | `PUT` | `/plantillas/{id}` | Edita (crea nueva versión) |
 | `PATCH` | `/plantillas/{id}/estado` | Activa / desactiva |
 | `POST` | `/plantillas/sugerir` | Recibe un `documento_id` y devuelve palabras clave y campos sugeridos |
-| `POST` | `/plantillas/{id}/probar` | Aplica la plantilla a un `documento_id` sin guardar |
 | `GET` | `/plantillas/{id}/versiones` | Historial de versiones: `[{version, fecha, comentario}]` (404 si la plantilla no existe) |
+| `POST` | `/plantillas/{id}/probar?documento_id=` | Aplica la plantilla a un documento ya procesado, sin guardar. Usa el texto y las posiciones guardadas. Cuerpo opcional `{campos?, diseno?}` para probar cambios sin guardar (vista previa del editor de cuadrícula). |
 | `POST` | `/plantillas/{id}/reprocesar` | Reprocesa todos los documentos clasificados con cualquier versión de esta plantilla; devuelve `{total, errores}` |
 
 ### Sistema
@@ -199,6 +199,12 @@ Aplica cada campo de la plantilla ganadora con su método. La confianza del camp
 - Antes se corrige el desplazamiento global con las etiquetas fijas y se aplica una tolerancia.
 - Si la lectura queda fuera de su zona, se agrega la advertencia `campo_fuera_de_zona:<campo>`.
 - Sin recorte fiable, o sin diseño, la extracción es la de siempre.
+
+**Coincidencia de diseño (docs/13 §3):** solo en plantillas con cuadrícula. Valida el diseño, **no** la autenticidad.
+- El resultado trae `coincidencia`: `{verificable, puntaje, umbral, veredicto (coincide/parcial/no_coincide), etiquetas_ok/total, desplazamiento_medio, valores_legibles/total, recorte_confiable, recorte_origen, orientacion, zonas, sugerencia}`. Sin cuadrícula, `null`.
+- Advertencias: `diseno_no_coincide` y `diseno_no_verificable`. Por ahora solo informa: no cambia el estado ni la clasificación.
+- Página cabeza abajo (180°): se resuelve con las etiquetas fijas.
+- Texto de lado (90°): se detecta en cualquier documento por la forma de las cajas, y la imagen se gira y se relee.
 
 **Catálogo de valores** (`"catalogo": [...]` en la regla, opcional): lista de formas canónicas del campo (p. ej. los gentilicios de `nacionalidad` en la cédula, migración 008).
 - Si la regla encuentra un valor que coincide con un elemento, o está a **un** carácter de distancia (Levenshtein ≤ 1, sin distinguir mayúsculas ni tildes), el valor guardado es la forma canónica. Ejemplo: `LCUATORIANA` se guarda como `ECUATORIANA`. `ValorTexto` conserva lo que leyó el OCR.

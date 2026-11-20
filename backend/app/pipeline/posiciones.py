@@ -69,6 +69,43 @@ def leer_palabras(texto_json: str | None) -> dict[int, list[dict[str, Any]]]:
     }
 
 
+def paginas_guardadas(texto_completo: str, palabras_json: str | None, recorte_json: str | None) -> list[PaginaOCR]:
+    """Rehace las páginas del OCR a partir de lo guardado en el resultado (para /probar sin releer el documento).
+    Sin posiciones guardadas (resultado anterior a la migración 009): una página solo con el texto, como antes."""
+    from ..dominio.modelos import PalabraOCR
+
+    if not palabras_json:
+        return [PaginaOCR(numero=1, texto=texto_completo or "", palabras=[], confianza_media=1.0)]
+    datos = json.loads(palabras_json)
+    recortes = leer_recorte(recorte_json)
+    paginas = []
+    guardadas = datos.get("paginas", [])
+    for pag in guardadas:
+        w, h = pag.get("ancho") or 1, pag.get("alto") or 1
+        palabras = [
+            PalabraOCR(texto=t, x=int(round(x * w)), y=int(round(y * h)), ancho=max(1, int(round(an * w))),
+                       alto=max(1, int(round(al * h))), confianza=c, linea=i, bloque=0, pagina=pag["numero"])
+            for i, (t, x, y, an, al, c) in enumerate(pag["palabras"])
+        ]
+        # una sola página: el texto guardado tal cual (conserva los saltos de línea que leen las reglas); varias:
+        # se rehace por líneas a partir de las cajas
+        texto = texto_completo if len(guardadas) == 1 else _texto_por_lineas(palabras)
+        conf = sum(p.confianza for p in palabras) / len(palabras) if palabras else 0.0
+        paginas.append(PaginaOCR(numero=pag["numero"], texto=texto or "", palabras=palabras, confianza_media=conf,
+                                 ancho=w, alto=h, motor=pag.get("motor"), recorte=recortes.get(pag["numero"])))
+    return paginas or [PaginaOCR(numero=1, texto=texto_completo or "", palabras=[], confianza_media=1.0)]
+
+
+def _texto_por_lineas(palabras) -> str:
+    lineas: list[list] = []
+    for p in sorted(palabras, key=lambda p: p.y + p.alto / 2):
+        if lineas and abs((p.y + p.alto / 2) - (lineas[-1][-1].y + lineas[-1][-1].alto / 2)) <= 0.6 * max(p.alto, 1):
+            lineas[-1].append(p)
+        else:
+            lineas.append([p])
+    return "\n".join(" ".join(w.texto for w in sorted(linea, key=lambda w: w.x)) for linea in lineas)
+
+
 TOLERANCIA_RELACION = 0.08
 
 

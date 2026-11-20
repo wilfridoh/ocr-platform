@@ -348,6 +348,7 @@ def preprocesar_detalle(
         "esquinas": esquinas,
         "relacion": round(max(h, w) / max(1, min(h, w)), 3),
         "orientacion": orientacion,
+        "orientacion_manual": orientacion,  # la que pidió una persona; "orientacion" suma además los giros automáticos
         "deskew": 0.0,
     }
     gris = a_gris(img)

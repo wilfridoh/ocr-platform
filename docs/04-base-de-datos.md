@@ -164,6 +164,7 @@ Un registro por documento (el último procesamiento). Al reprocesar se reemplaza
 | `MotorOcr` | `NVARCHAR(30)` | `tesseract-5.3` / `paddle-2.7` / `pdf-nativo` |
 | `PalabrasJson` | `NVARCHAR(MAX)` NULL, `ISJSON` | Cada palabra del motor principal con su caja **relativa (0–1)** a la imagen recortada y enderezada sobre la que leyó el OCR. Formato compacto por página: `{"v":1,"paginas":[{"numero","motor","ancho","alto","palabras":[[texto,x,y,ancho,alto,confianza]]}]}`. Ocupa unos 50 bytes de JSON por palabra (≈ 2–7 KB por cédula; el doble en BD por ser NVARCHAR). Ver docs/13 §1.3 y `pipeline/posiciones.py`. |
 | `RecorteJson` | `NVARCHAR(MAX)` NULL, `ISJSON` | Por página, cómo se recortó la imagen: `aplicado`, `origen` (`automatico` / `ninguno` / `pdf`), `esquinas` (4 puntos relativos a la imagen original o `null`), `relacion` (lado mayor / menor tras el recorte), `orientacion`, `deskew`. |
+| `CoincidenciaJson` | `NVARCHAR(MAX)` NULL, `ISJSON` | Bloque `coincidencia` del resultado: coincidencia de **diseño** con la plantilla, no de autenticidad (docs/13 §3.3). `NULL` si la plantilla no tiene cuadrícula. Agregada con `migracion_011_resultado_coincidencia.sql`. |
 | `CreadoEn` | `DATETIME2` | |
 
 `PalabrasJson` y `RecorteJson` se agregaron con `migracion_009_resultado_posiciones.sql`:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..dominio.modelos import CampoExtraidoDTO, Clasificacion, PaginaOCR, ResultadoDTO
+from .zonas import advertencias_coincidencia
 
 
 def confianza_global(clasificacion: Clasificacion, campos: list[CampoExtraidoDTO], obligatorios: set[str]) -> float:
@@ -35,9 +36,10 @@ def ensamblar(
     obligatorios: set[str],
     tiempos_ms: dict[str, int],
     motor_ocr: str,
+    coincidencia: dict | None = None,
 ) -> ResultadoDTO:
     texto_completo = "\n".join(p.texto for p in paginas)
-    advertencias = construir_advertencias(campos, obligatorios)
+    advertencias = construir_advertencias(campos, obligatorios) + advertencias_coincidencia(coincidencia)
     conf_global = confianza_global(clasificacion, campos, obligatorios)
     return ResultadoDTO(
         paginas=paginas,
@@ -49,4 +51,5 @@ def ensamblar(
         advertencias=advertencias,
         tiempos_ms=tiempos_ms,
         motor_ocr=motor_ocr,
+        coincidencia=coincidencia,
     )

@@ -219,6 +219,8 @@ BEGIN
         -- posicion de las palabras y datos del recorte (docs/13 1.3; en BD existentes: migracion_009)
         PalabrasJson            NVARCHAR(MAX) NULL CONSTRAINT CK_Resultado_PalabrasJson CHECK (PalabrasJson IS NULL OR ISJSON(PalabrasJson) = 1),
         RecorteJson             NVARCHAR(MAX) NULL CONSTRAINT CK_Resultado_RecorteJson CHECK (RecorteJson IS NULL OR ISJSON(RecorteJson) = 1),
+        -- coincidencia de diseno con la plantilla (docs/13 3.3; en BD existentes: migracion_011)
+        CoincidenciaJson        NVARCHAR(MAX) NULL CONSTRAINT CK_Resultado_CoincidenciaJson CHECK (CoincidenciaJson IS NULL OR ISJSON(CoincidenciaJson) = 1),
         CreadoEn                DATETIME2 NOT NULL CONSTRAINT DF_Resultado_CreadoEn DEFAULT SYSUTCDATETIME(),
         CONSTRAINT UQ_Resultado_Documento UNIQUE (DocumentoId)
     );

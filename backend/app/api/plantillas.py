@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..almacen import AlmacenDisco
@@ -18,7 +21,7 @@ from ..commands.probar_plantilla import PlantillaNoExiste as PlantillaNoExistePr
 from ..commands.probar_plantilla import probar_plantilla as cmd_probar
 from ..commands.sugerir_plantilla import DocumentoSinResultado
 from ..commands.sugerir_plantilla import sugerir_plantilla as cmd_sugerir
-from ..dominio.modelos import PlantillaCrear, PlantillaEstado
+from ..dominio.modelos import CampoPlantillaDTO, DisenoPlantilla, PlantillaCrear, PlantillaEstado
 from .._convertir_a_dto import plantilla_a_dto
 from ..queries.listar_plantillas import listar_plantillas as q_listar
 from ..queries.listar_plantillas import obtener_plantilla as q_obtener
@@ -133,15 +136,30 @@ def sugerir(
     return sugerencia.model_dump(mode="json")
 
 
+class ProbarEntrada(BaseModel):
+    """Cambios aún no guardados para la vista previa del editor de cuadrícula (docs/13 §7). Todo opcional: sin cuerpo
+    se prueba la versión actual. "diseno": null explícito prueba sin cuadrícula."""
+
+    campos: Optional[list[CampoPlantillaDTO]] = None
+    diseno: Optional[DisenoPlantilla] = None
+
+
 @router.post("/{plantilla_id}/probar")
 def probar(
     plantilla_id: int,
     documento_id: str,
+    entrada: Optional[ProbarEntrada] = Body(default=None),
     db: Session = Depends(get_db),
     _: Principal = Depends(requiere_rol("Editor")),
 ) -> dict:
     try:
-        resultado = cmd_probar(db, plantilla_id, documento_id)
+        extras = {}
+        if entrada is not None:
+            if entrada.campos is not None:
+                extras["campos"] = entrada.campos
+            if "diseno" in entrada.model_fields_set:
+                extras["diseno"] = entrada.diseno
+        resultado = cmd_probar(db, plantilla_id, documento_id, **extras)
     except PlantillaNoExisteProbar as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except DocSinResultadoProbar as e:

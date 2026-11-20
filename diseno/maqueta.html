@@ -1040,7 +1040,7 @@ function zMapear(){
   const f=FZ.find(x=>x[0]===ZG.campo);
   const hint=ZG.tool==='borrar'
     ?`<div class="zhint" style="--c:#B91C1C">${ic('eraser',16)}<span><b>Borrar:</b> arrastra sobre las zonas que quieres quitar.</span></div>`
-    :`<div class="zhint" style="--c:${f[2]}"><i class="zdot"></i><span>Marcando <b>${f[1]}</b> como</span><span class="seg" id="ztipo"><button data-zt2="valor" class="${ZG.tipo==='valor'?'on':''}" ${f[3]?'disabled':''}>Valor</button><button data-zt2="etiqueta" class="${ZG.tipo==='etiqueta'?'on':''}">Etiqueta fija</button></span><span class="muted hidem">— arrastra sobre las celdas del documento</span></div>`;
+    :`<div class="zhint" style="--c:${f[2]}"><i class="zdot"></i><span>Marcando <b>${f[1]}</b> como</span><span class="seg" id="ztipo"><button data-zt2="valor" class="${ZG.tipo==='valor'?'on':''}" ${f[3]?'disabled':''}>Valor</button><button data-zt2="etiqueta" class="${ZG.tipo==='etiqueta'?'on':''}">Etiqueta fija</button></span><span class="muted hidem">${ZG.tipo==='etiqueta'?'— haz clic sobre la palabra impresa; arrastrar puede incluir el dato de abajo':'— arrastra sobre las celdas del documento'}</span></div>`;
   const lista=ZG.zones.length?FZ.map(fd=>{
     const zv=ZG.zones.find(z=>z.f===fd[0]&&z.t==='valor'),ze=ZG.zones.find(z=>z.f===fd[0]&&z.t==='etiqueta'),act=ZG.campo===fd[0];
     let info='';

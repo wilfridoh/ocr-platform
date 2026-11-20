@@ -32,6 +32,7 @@ def obtener_resultado(db: Session, documento_id: str) -> dict:
             "confianza_global": 0.0,
             "advertencias": [],
             "tiempos_ms": {},
+            "coincidencia": None,
         }
 
     # plantilla y versión con que se leyó el documento (el frontend carga sus campos/etiquetas con esto)
@@ -60,4 +61,5 @@ def obtener_resultado(db: Session, documento_id: str) -> dict:
         "confianza_global": float(resultado.ConfianzaGlobal),
         "advertencias": json.loads(resultado.AdvertenciasJson) if resultado.AdvertenciasJson else [],
         "tiempos_ms": json.loads(resultado.TiemposJson) if resultado.TiemposJson else {},
+        "coincidencia": json.loads(resultado.CoincidenciaJson) if resultado.CoincidenciaJson else None,
     }

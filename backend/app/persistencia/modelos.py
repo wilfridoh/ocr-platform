@@ -185,6 +185,8 @@ class Resultado(Base):
     # posición de las palabras y datos del recorte (docs/13 §1.3; migracion_009). NULL en resultados anteriores.
     PalabrasJson: Mapped[str | None] = mapped_column(Text, nullable=True)
     RecorteJson: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # coincidencia de diseño con la plantilla (docs/13 §3.3; migracion_011). NULL sin cuadrícula.
+    CoincidenciaJson: Mapped[str | None] = mapped_column(Text, nullable=True)
     CreadoEn: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
 
     documento: Mapped["Documento"] = relationship("Documento", back_populates="resultado")

@@ -27,11 +27,15 @@ def recortes_manuales_guardados(documento: m.Documento) -> dict[int, dict]:
 
     resultado = documento.resultado
     guardados = leer_recorte(resultado.RecorteJson if resultado else None)
-    return {
-        n: {"esquinas": r.get("esquinas"), "orientacion": r.get("orientacion") or 0}
-        for n, r in guardados.items()
-        if r.get("origen") == "manual" or r.get("orientacion")
-    }
+    salida = {}
+    for n, r in guardados.items():
+        # solo lo que pidió una persona; los giros que decidió el sistema (orientacion_auto) se vuelven a decidir
+        manual = r.get("orientacion_manual")
+        if manual is None:  # resultados anteriores a la entrega 4: toda orientación guardada era manual
+            manual = 0 if r.get("orientacion_auto") else (r.get("orientacion") or 0)
+        if r.get("origen") == "manual" or manual:
+            salida[n] = {"esquinas": r.get("esquinas") if r.get("origen") == "manual" else None, "orientacion": manual}
+    return salida
 
 
 def reprocesar_documento(
@@ -83,6 +87,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
     from ..pipeline.extractor import extraer_campos
     from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
     from ._convertir import campos_de_version, diseno_de_version
+    from ._coincidencia import evaluar_coincidencia
 
     plantilla_forzada = None
     if plantilla_id is not None:
@@ -127,6 +132,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
         t0 = time.perf_counter()
         campos_dto: list[CampoExtraidoDTO] = []
         obligatorios: set[str] = set()
+        coincidencia: dict | None = None
         if version_ganadora:
             campos_plantilla = campos_de_version(version_ganadora)
             obligatorios = {c.nombre for c in campos_plantilla if c.obligatorio}
@@ -138,11 +144,15 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
                 settings.OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS,
                 diseno_de_version(version_ganadora),
             )
+            coincidencia = evaluar_coincidencia(
+                db, paginas, campos_plantilla, diseno_de_version(version_ganadora), campos_dto, clasificacion
+            )
         tiempos["extraccion"] = int((time.perf_counter() - t0) * 1000)
         tiempos["total"] = int((time.perf_counter() - t_total) * 1000)
 
         resultado = ensamblador_mod.ensamblar(
-            paginas, clasificacion, campos_dto, palabras_clave_encontradas, obligatorios, tiempos, motor_usado
+            paginas, clasificacion, campos_dto, palabras_clave_encontradas, obligatorios, tiempos, motor_usado,
+            coincidencia,
         )
         repo.guardar_resultado(
             db,
@@ -160,6 +170,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
             campos=[c.model_dump() for c in campos_dto],
             palabras_json=posiciones.palabras_json(paginas),
             recorte_json=posiciones.recorte_json(paginas),
+            coincidencia=coincidencia,
         )
         # documento de un flujo de captura sin plantilla aplicable: NO_COINCIDE (igual que al procesarlo)
         sin_coincidencia = documento.FlujoCapturaId is not None and plantilla_forzada is None and clasificacion.tipo == "desconocido"
