@@ -109,6 +109,10 @@ Columnas nuevas en `Resultado`:
 | `RecorteJson NVARCHAR(MAX) NULL` | Por página guarda solo hechos: `{aplicado, origen: "automatico"\|"manual"\|"ninguno"\|"pdf", esquinas, relacion, orientacion, deskew}`. Las `esquinas` son las 4, relativas a la imagen original. `recorte_confiable` **se calcula al leer**, comparando `relacion` con el formato de la plantilla, y no se guarda. |
 | `CoincidenciaJson NVARCHAR(MAX) NULL` | El bloque `coincidencia` del resultado (§3.3). Llega en la entrega 4, con su propia migración. |
 
+**Implementado en la entrega 3:**
+- Extracción zona + etiqueta (§2.2–2.3; `pipeline/zonas.py`) y advertencia `campo_fuera_de_zona`.
+- `DELETE /api/documentos/{id}/paginas/{n}/recorte`: quita el recorte manual y reprocesa con el automático.
+
 **Implementado en la entrega 2:** `PlantillaVersion.DisenoJson` (migración 010), `ReglaCampo.zona_etiqueta` y
 `diseno` en el DTO de plantilla.
 - **Dónde va `diseno`:** al nivel de la plantilla, igual que `umbral_confianza`, pero se guarda por versión.
@@ -149,27 +153,42 @@ Las cajas de Paddle y docTR se expresan sobre la imagen ya procesada (recortada 
 
 ### 2.2 Zona de valor + etiqueta: qué gana cuando discrepan
 
-Para un campo con zona de valor y método `ancla` o `regex`:
+Para un campo con zona de valor y método `ancla` o `regex` (implementado en la entrega 3,
+`pipeline/extractor.py::_combinar_con_zona`):
 
-1. La etiqueta (o la regex) produce candidatos, como hoy, y cada uno se ubica mediante las cajas de sus palabras.
-2. **Si un candidato cae dentro de la zona** (con tolerancia), gana ese, aunque no sea el primero del texto. Esto
-   evita los "valores de otro campo": el nombre del padre, la fecha de emisión tomada como fecha de nacimiento.
-3. **Si ningún candidato cae en la zona** y la zona contiene un valor que pasa el validador del tipo de dato:
-   - con recorte fiable y diseño que coincide, gana la zona, con confianza ×0,8 y la advertencia
-     `campo_fuera_de_zona:<campo>`;
-   - si no, gana la etiqueta, que es el comportamiento de hoy, con la misma advertencia.
-4. **Si la etiqueta no encuentra nada**, se usa la zona como respaldo, con confianza ×0,8. Esto rescata etiquetas
-   ilegibles.
-5. **Si los dos coinciden**, la confianza sube 0,05 (tope 1,0). Esto además evita segundas opiniones innecesarias.
+1. La etiqueta (o la regex) lee el valor como siempre. Aparte, se toma el texto de las palabras cuyo centro cae en
+   la zona de valor (con desplazamiento y tolerancia). Si la regla tiene regex, se aplica a ese texto y, si no calza,
+   se usa el texto entero.
+2. **Si coinciden** (mismo valor validado, o un texto contenido en el otro, o similitud ≥ 90), se conserva la lectura
+   de la etiqueta con **+0,05** de confianza (tope 1,0), y el campo informa su caja `x, y, ancho, alto`. Esto además
+   evita segundas opiniones innecesarias.
+3. **Si la etiqueta no encontró nada** y el valor de la zona es válido, se usa el de la zona con confianza **×0,8**.
+   Esto rescata etiquetas ilegibles.
+4. **Si discrepan** (o la zona está vacía):
+   - con el **diseño verificado** (recorte fiable y al menos la mitad de las etiquetas fijas de la página en su
+     sitio), gana la zona si su valor es válido, con confianza ×0,8;
+   - si no, gana la etiqueta, que es el comportamiento de siempre.
+   - En ambos casos queda la advertencia `campo_fuera_de_zona:<campo>`.
+5. **Sin recorte fiable** la zona no se usa en absoluto. Un campo con método `zona` puro queda vacío, sin inventar.
+6. **La segunda opinión** (docTR) lee la misma imagen procesada, así que hereda el recorte de la página principal y
+   aplica las mismas zonas.
 
 ### 2.3 Tolerancia y corrección de desplazamiento
 
-- Antes de extraer, se estima un **desplazamiento global** (dx, dy): la mediana de la diferencia entre la posición
-  esperada y la encontrada de las etiquetas fijas halladas. Hacen falta al menos 2; con menos, no se corrige.
-- Todas las zonas se mueven ese desplazamiento.
-- Después, cada zona se agranda en `tolerancia` (3 %) por lado.
+- Antes de extraer se estima un **desplazamiento global** (dx, dy) con las etiquetas fijas encontradas (similitud
+  ≥ 0,8):
+  - por cada una, lo **mínimo** que hay que mover su zona para que contenga el centro de la etiqueta (0 si ya está
+    dentro);
+  - se toma la mediana.
+  - Así una zona dibujada holgada no sesga el cálculo, cosa que sí pasaría comparando centros.
+  - Hacen falta al menos 2 etiquetas, y se descartan diferencias mayores de 0,25 (texto parecido en otra parte).
+    Con menos de 2, no se corrige.
+- Todas las zonas se mueven ese desplazamiento y después se agrandan en `tolerancia` (3 % por defecto) por lado.
 - Una palabra cuenta como "dentro" si su **centro** cae en la zona ampliada.
-- Si la escala estimada con las etiquetas se aparta más del 10 %, el recorte se trata como no fiable.
+- **Las palabras que forman una etiqueta fija encontrada nunca cuentan como valor.** Una etiqueta impresa a pocos
+  milímetros encima de su valor se colaría por la tolerancia.
+- La comprobación de escala (> 10 %) queda para la entrega 4, junto con el puntaje.
+- **Coste medido:** ~+10 ms por documento (150 palabras, 10 etiquetas, 7 campos con zona). Sin diseño, 0.
 
 ## 3. Validación de diseño (coincidencia)
 
@@ -437,6 +456,7 @@ Orden sugerido:
 |---|---|
 | `GET /api/documentos/{id}/paginas/{n}/enderezada` | **Nuevo.** PNG (o JPEG calidad 90 con `?formato=jpeg`, para móvil) de la tarjeta recortada, enderezada y horizontal, en color. Cabeceras `X-Recorte-Confiable: true\|false`, `X-Recorte-Origen` y `X-Orientacion`. Sin recorte fiable devuelve la página original (para el aviso ámbar y el ajuste de esquinas). |
 | `GET /api/documentos/{id}/paginas/{n}/palabras` | **Nuevo.** `{recorte: {confiable, origen, esquinas, orientacion, relacion}, palabras: [{texto, x, y, ancho, alto, confianza}]}`, relativas a la imagen enderezada. Alimenta el "Lee: …" del panel. 404 si el documento es anterior al cambio. |
+| `DELETE /api/documentos/{id}/paginas/{n}/recorte` | **Nuevo (entrega 3).** Quita el recorte y el giro manuales de la página, reprocesa con la detección automática y devuelve el resultado. |
 | `POST /api/documentos/{id}/paginas/{n}/recorte` | **Nuevo.** Cuerpo: `{esquinas: [[x,y]×4], orientacion?: 0\|90\|180\|270}`, con las esquinas relativas a la imagen original. `orientacion` sirve para el «Girar 90°» manual que pidió UX. Valida, guarda (`origen: "manual"`) y reprocesa con esas esquinas. Devuelve el resultado; la imagen se vuelve a pedir a `…/enderezada`. |
 | `GET/PUT /api/plantillas/{id}` | `version.diseno` (§1.2) y `campo.regla.zona_etiqueta` (§1.1). La zona de valor usa `x, y, ancho, alto` de la regla. Guardar crea una versión nueva. |
 | `POST /api/plantillas/{id}/probar` | Usa las cajas guardadas y devuelve `coincidencia`. Acepta en el cuerpo un `diseno` y unas reglas sin guardar, para la pestaña "Validar un documento" mientras se editan las zonas. |

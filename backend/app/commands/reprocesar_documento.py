@@ -43,7 +43,8 @@ def reprocesar_documento(
     recorte_manual: tuple[int, dict] | None = None,
 ) -> tuple[str, ResultadoDTO]:
     """`recorte_manual` = (numero_pagina, {"esquinas": [[x,y]x4] | None, "orientacion": 0|90|180|270}): recorte y/o
-    giro marcados por una persona para esa página (docs/13 §4.2). Los de otras páginas guardados antes se conservan."""
+    giro marcados por una persona para esa página (docs/13 §4.2). Los de otras páginas guardados antes se conservan.
+    (numero_pagina, None) quita el recorte manual de esa página y la devuelve a la detección automática."""
     documento = repo.obtener_documento(db, documento_id)
     if not documento:
         raise DocumentoNoExiste(f"El documento {documento_id} no existe")
@@ -57,7 +58,10 @@ def reprocesar_documento(
         pagina, recorte = recorte_manual
         if not 1 <= pagina <= (documento.Paginas or 1):
             raise PaginaFueraDeRango(f"El documento tiene {documento.Paginas or 1} página(s)")
-        recortes[pagina] = recorte
+        if recorte is None:
+            recortes.pop(pagina, None)  # quitar el recorte manual: esa página vuelve a la detección automática
+        else:
+            recortes[pagina] = recorte
     # Reutiliza el mismo DocumentoId: se actualiza en lugar de crear uno nuevo.
     try:
         return _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantilla_id, recortes)
@@ -78,7 +82,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
     from ..pipeline import posiciones
     from ..pipeline.extractor import extraer_campos
     from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
-    from ._convertir import campos_de_version
+    from ._convertir import campos_de_version, diseno_de_version
 
     plantilla_forzada = None
     if plantilla_id is not None:
@@ -132,6 +136,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
                 proveedor_segunda_opinion(doc_ing, settings, motor_usado),
                 settings.OCR_UMBRAL_SEGUNDA_OPINION,
                 settings.OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS,
+                diseno_de_version(version_ganadora),
             )
         tiempos["extraccion"] = int((time.perf_counter() - t0) * 1000)
         tiempos["total"] = int((time.perf_counter() - t_total) * 1000)

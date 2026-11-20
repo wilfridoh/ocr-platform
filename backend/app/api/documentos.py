@@ -288,6 +288,27 @@ def recortar_manual(
     return resultado.a_contrato(doc_id, documento.NombreArchivo, estado=documento.Estado)
 
 
+@router.delete("/{documento_id}/paginas/{n}/recorte")
+def quitar_recorte_manual(
+    documento_id: str,
+    n: int,
+    db: Session = Depends(get_db),
+    almacen: AlmacenDisco = Depends(get_almacen),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Quita el recorte y el giro manuales de la página y reprocesa con la detección automática. Devuelve el resultado
+    nuevo (si la página no tenía recorte manual, equivale a reprocesar)."""
+    from ..commands.reprocesar_documento import PaginaFueraDeRango
+
+    _resultado_y_recorte(db, documento_id, n)
+    try:
+        doc_id, resultado = reprocesar_documento(db, almacen, settings, documento_id, None, (n, None))
+    except (DocumentoNoExiste, PaginaFueraDeRango, PlantillaForzadaNoExiste) as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    documento = repo.obtener_documento(db, doc_id)
+    return resultado.a_contrato(doc_id, documento.NombreArchivo, estado=documento.Estado)
+
+
 @router.post("/{documento_id}/reprocesar")
 def reprocesar(
     documento_id: str,

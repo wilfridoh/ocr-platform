@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from ..dominio.modelos import CampoPlantillaDTO, PalabraClaveDTO, ReglaCampo
+from ..dominio.modelos import CampoPlantillaDTO, DisenoPlantilla, PalabraClaveDTO, ReglaCampo
 from ..persistencia import modelos as m
 
 
@@ -23,6 +23,13 @@ def campos_de_version(version: m.PlantillaVersion) -> list[CampoPlantillaDTO]:
             )
         )
     return campos
+
+
+def diseno_de_version(version: m.PlantillaVersion | None) -> DisenoPlantilla | None:
+    """Diseño por posición de la versión (docs/13 §1.2), o None si la plantilla no tiene cuadrícula."""
+    if version is None or not getattr(version, "DisenoJson", None):
+        return None
+    return DisenoPlantilla.model_validate_json(version.DisenoJson)
 
 
 def palabras_clave_de_version(version: m.PlantillaVersion) -> list[PalabraClaveDTO]:

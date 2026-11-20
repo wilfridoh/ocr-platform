@@ -11,8 +11,9 @@ from functools import lru_cache
 from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
 
-from ..dominio.modelos import CampoExtraidoDTO, CampoPlantillaDTO, PaginaOCR, PalabraOCR
+from ..dominio.modelos import CampoExtraidoDTO, CampoPlantillaDTO, DisenoPlantilla, PaginaOCR, PalabraOCR
 from .validadores import validar_normalizar
+from .zonas import MarcoPagina, calcular_marcos, texto_en_zona, zona_valor
 
 logger = logging.getLogger(__name__)
 
@@ -301,9 +302,29 @@ def _extraer_ancla(
 
 
 # --------------------------------------------------------------------- zona
-def _extraer_zona(campo: CampoPlantillaDTO, paginas: list[PaginaOCR]) -> tuple[str | None, int | None, float]:
+def _aplicar_regex_zona(campo: CampoPlantillaDTO, texto: str) -> str | None:
+    r = campo.regla
+    if not r.regex or not texto:
+        return texto or None
+    flags = re.IGNORECASE if r.flags and "i" in r.flags else 0
+    m = re.search(r.regex, texto, flags)
+    return ((next((g for g in m.groups() if g), None) or m.group(0)) if m.groups() else m.group(0)) if m else None
+
+
+def _extraer_zona(
+    campo: CampoPlantillaDTO, paginas: list[PaginaOCR], marcos: dict | None = None
+) -> tuple[str | None, int | None, float]:
     r = campo.regla
     num_pagina = r.pagina or 1
+    marco = (marcos or {}).get(num_pagina)
+    zona = zona_valor(campo)
+    if marco is not None and zona is not None:
+        # plantilla con diseño (docs/13 §2.3): con desplazamiento global y tolerancia; sin recorte fiable no hay zona
+        if not marco.confiable:
+            return None, None, 0.0
+        texto, conf, _ = texto_en_zona(marco, zona)
+        texto = _aplicar_regex_zona(campo, texto) if texto else None
+        return (texto, num_pagina, conf) if texto else (None, None, 0.0)
     pagina = next((p for p in paginas if p.numero == num_pagina), None)
     if not pagina or not pagina.ancho or not pagina.alto:
         return None, None, 0.0
@@ -501,15 +522,20 @@ def _buscar_en_catalogo(
 
 
 def extraer_campo(
-    campo: CampoPlantillaDTO, paginas: list[PaginaOCR], otras_anclas: tuple[str, ...] = ()
+    campo: CampoPlantillaDTO,
+    paginas: list[PaginaOCR],
+    otras_anclas: tuple[str, ...] = (),
+    marcos: dict[int, MarcoPagina] | None = None,
 ) -> CampoExtraidoDTO:
+    """`marcos` (calcular_marcos): solo con plantilla con diseño. Entonces la zona de valor del campo confirma, desempata
+    o rescata la lectura de la etiqueta (docs/13 §2.2). Sin marcos, comportamiento de siempre."""
     metodo = campo.regla.metodo
     if metodo == "regex":
         valor_texto, pagina, conf_ocr = _extraer_regex(campo, paginas)
     elif metodo == "ancla":
         valor_texto, pagina, conf_ocr = _extraer_ancla(campo, paginas, otras_anclas)
     elif metodo == "zona":
-        valor_texto, pagina, conf_ocr = _extraer_zona(campo, paginas)
+        valor_texto, pagina, conf_ocr = _extraer_zona(campo, paginas, marcos)
     else:
         valor_texto, pagina, conf_ocr = None, None, 0.0
 
@@ -518,11 +544,28 @@ def extraer_campo(
         valor_texto, pagina, conf_ocr, dudosa = _fecha_nacimiento_sin_etiqueta(paginas)
 
     canonico = None
-    if campo.regla.catalogo:
-        if valor_texto is None:
-            valor_texto, canonico, pagina, conf_ocr = _buscar_en_catalogo(campo.regla.catalogo, paginas)
-        else:
-            canonico = _en_catalogo(valor_texto, campo.regla.catalogo)
+    if campo.regla.catalogo and valor_texto is None:
+        valor_texto, canonico, pagina, conf_ocr = _buscar_en_catalogo(campo.regla.catalogo, paginas)
+
+    base = _resultado_campo(campo, paginas, valor_texto, pagina, conf_ocr, dudosa, canonico)
+    if marcos and metodo != "zona" and zona_valor(campo) is not None:
+        base = _combinar_con_zona(campo, paginas, base, marcos)
+    return base
+
+
+def _resultado_campo(
+    campo: CampoPlantillaDTO,
+    paginas: list[PaginaOCR],
+    valor_texto: str | None,
+    pagina: int | None,
+    conf_ocr: float,
+    dudosa: bool = False,
+    canonico: str | None = None,
+) -> CampoExtraidoDTO:
+    """Catálogo, validación y plausibilidad de una lectura ya ubicada: el mismo tratamiento venga de la etiqueta, de la
+    regex o de la zona."""
+    if campo.regla.catalogo and valor_texto is not None and canonico is None:
+        canonico = _en_catalogo(valor_texto, campo.regla.catalogo)
 
     # se valida la forma canónica si la hay; valor_texto conserva lo que leyó el OCR
     valor_norm, valido = validar_normalizar(campo.tipo_dato, canonico or valor_texto)
@@ -543,6 +586,57 @@ def extraer_campo(
         valido=valido,
         motor=pag_motor.motor if (pag_motor and valor_texto is not None) else None,
     )
+
+
+FACTOR_ZONA = 0.8  # valor tomado solo de la zona (rescate o desempate): algo menos seguro que con etiqueta y zona
+BONO_COINCIDENCIA = 0.05  # etiqueta y zona dicen lo mismo
+
+
+def _coinciden(a: CampoExtraidoDTO, b: CampoExtraidoDTO) -> bool:
+    if a.valido and b.valido and a.valor == b.valor:
+        return True
+    ta, tb = _normaliza(a.valor_texto or ""), _normaliza(b.valor_texto or "")
+    if not ta or not tb:
+        return False
+    return ta in tb or tb in ta or fuzz.ratio(ta, tb) >= 90
+
+
+def _combinar_con_zona(
+    campo: CampoPlantillaDTO, paginas: list[PaginaOCR], base: CampoExtraidoDTO, marcos: dict[int, MarcoPagina]
+) -> CampoExtraidoDTO:
+    """Campo con etiqueta/regex Y zona de valor (docs/13 §2.2):
+    - coinciden: se conserva la lectura de la etiqueta con +0,05 de confianza;
+    - la etiqueta no encontró nada: se usa lo que hay en la zona (confianza x0,8);
+    - discrepan: con el diseño verificado (recorte fiable y la mitad de las etiquetas fijas en su sitio) gana la zona si
+      su valor es válido; si no, la etiqueta. En ambos casos queda la advertencia campo_fuera_de_zona.
+    Sin recorte fiable la zona no se usa: comportamiento de siempre."""
+    num = campo.regla.pagina or 1
+    marco = marcos.get(num)
+    zona = zona_valor(campo)
+    if marco is None or not marco.confiable or zona is None:
+        return base
+    texto, conf, caja = texto_en_zona(marco, zona)
+    texto = _aplicar_regex_zona(campo, texto) if texto else None
+    z = _resultado_campo(campo, paginas, texto, num, conf) if texto else None
+    if z is not None and caja:
+        z.x, z.y, z.ancho, z.alto = round(caja[0], 4), round(caja[1], 4), round(caja[2] - caja[0], 4), round(caja[3] - caja[1], 4)
+
+    if base.valor_texto is None:
+        if z is not None and z.valido:
+            z.confianza = round(z.confianza * FACTOR_ZONA, 3)
+            return z
+        return base
+    if z is not None and _coinciden(base, z):
+        base.confianza = round(min(1.0, base.confianza + BONO_COINCIDENCIA), 3)
+        base.x, base.y, base.ancho, base.alto = z.x, z.y, z.ancho, z.alto
+        return base
+    if marco.verificado and z is not None and z.valido:
+        logger.info("Campo '%s': la etiqueta leyó fuera de su zona; se usa el valor de la zona", campo.nombre)
+        z.confianza = round(z.confianza * FACTOR_ZONA, 3)
+        z.fuera_de_zona = True
+        return z
+    base.fuera_de_zona = True
+    return base
 
 
 def _otras_anclas(campo: CampoPlantillaDTO, campos: list[CampoPlantillaDTO]) -> tuple[str, ...]:
@@ -582,6 +676,7 @@ def extraer_campos(
     segunda_opinion: Callable[[], list[PaginaOCR] | None] | None = None,
     umbral_segunda_opinion: float = 0.7,
     solo_obligatorios: bool = False,
+    diseno: DisenoPlantilla | None = None,
 ) -> list[CampoExtraidoDTO]:
     """Extrae todos los campos. Si se entrega `segunda_opinion` (callable perezoso que relee el
     documento con otro motor), los campos con confianza < umbral se reextraen con él y se
@@ -590,8 +685,11 @@ def extraer_campos(
     Con `solo_obligatorios`, un campo NO obligatorio y vacío no dispara la relectura por sí solo: muchas variantes
     de un documento no traen impresos todos los opcionales (p. ej. una cédula sin fecha de vencimiento) y pagarían
     siempre la segunda opinión, que es lenta. Si la relectura entra por otro campo, los opcionales vacíos también
-    se reintentan."""
-    resultados = [extraer_campo(c, paginas, _otras_anclas(c, campos)) for c in campos]
+    se reintentan.
+
+    Con `diseno` (plantilla con cuadrícula, docs/13) cada campo con zona de valor combina etiqueta y zona."""
+    marcos = calcular_marcos(paginas, campos, diseno)
+    resultados = [extraer_campo(c, paginas, _otras_anclas(c, campos), marcos) for c in campos]
     if segunda_opinion is None:
         return resultados
     pendientes = [i for i, r in enumerate(resultados) if r.confianza < umbral_segunda_opinion]
@@ -608,8 +706,14 @@ def extraer_campos(
     alt = segunda_opinion()
     if not alt:
         return resultados
+    if diseno is not None:
+        # el segundo motor lee la MISMA imagen procesada: mismo recorte, mismas coordenadas relativas
+        recortes = {p.numero: p.recorte for p in paginas}
+        for p in alt:
+            p.recorte = p.recorte or recortes.get(p.numero)
+    marcos_alt = calcular_marcos(alt, campos, diseno)
     for i in pendientes:
-        alternativo = extraer_campo(campos[i], alt, _otras_anclas(campos[i], campos))
+        alternativo = extraer_campo(campos[i], alt, _otras_anclas(campos[i], campos), marcos_alt)
         elegido = _mejor(resultados[i], alternativo, campos[i].tipo_dato)
         if elegido is alternativo:
             logger.info(

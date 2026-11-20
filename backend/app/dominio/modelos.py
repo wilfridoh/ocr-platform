@@ -179,6 +179,8 @@ class CampoExtraidoDTO(BaseModel):
     alto: Optional[float] = None
     valido: bool = False
     motor: Optional[str] = None  # motor OCR que dio la lectura final del campo
+    # plantilla con diseño: la etiqueta leyó el valor fuera de la zona marcada (advertencia campo_fuera_de_zona)
+    fuera_de_zona: bool = False
 
 
 class ResultadoDTO(BaseModel):

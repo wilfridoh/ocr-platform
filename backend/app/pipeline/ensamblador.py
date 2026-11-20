@@ -22,6 +22,8 @@ def construir_advertencias(campos: list[CampoExtraidoDTO], obligatorios: set[str
             advertencias.append(f"campo_obligatorio_faltante:{c.nombre}")
         elif not c.valido and c.valor_texto:
             advertencias.append(f"campo_no_valido:{c.nombre}")
+        if c.fuera_de_zona:
+            advertencias.append(f"campo_fuera_de_zona:{c.nombre}")
     return advertencias
 
 

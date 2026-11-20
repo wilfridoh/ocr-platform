@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..dominio.modelos import ResultadoDTO
 from ..persistencia import modelos as m
 from ..persistencia import repositorios as repo
-from ._convertir import campos_de_version
+from ._convertir import campos_de_version, diseno_de_version
 from ..pipeline.extractor import extraer_campos
 from ..pipeline import ensamblador as ensamblador_mod
 from ..dominio.modelos import Clasificacion
@@ -35,7 +35,7 @@ def probar_plantilla(db: Session, plantilla_id: int, documento_id: str) -> Resul
     # ya que el resultado persistido no conserva las cajas); suficiente para métodos regex/ancla.
     pagina = PaginaOCR(numero=1, texto=resultado_guardado.TextoCompleto or "", palabras=[], confianza_media=1.0)
     campos_plantilla = campos_de_version(plantilla.version_actual)
-    campos_dto = extraer_campos(campos_plantilla, [pagina])
+    campos_dto = extraer_campos(campos_plantilla, [pagina], diseno=diseno_de_version(plantilla.version_actual))
     obligatorios = {c.nombre for c in campos_plantilla if c.obligatorio}
     clasificacion = Clasificacion(
         tipo=plantilla.Codigo, plantilla_id=plantilla.PlantillaId, version_id=plantilla.version_actual.PlantillaVersionId, confianza=1.0

@@ -335,6 +335,35 @@ Reglas nuevas para pruebas en la BD real, pedidas por el Líder: no reprocesar n
 
 **Veredicto QA: aprobado para que el Líder lo despliegue.** Código, migración 010 y los 3 endpoints (incluido el anexo `?formato=jpeg`) correctos; el incidente fue de mi plantilla de prueba, no de la entrega, y ya quedó resuelto y verificado.
 
-## 16. Limpieza al cierre
+## 16. Cuadrícula de zonas, entrega 3: extracción zona + etiqueta (2026-11-20, mismo día)
+
+Tercera entrega (docs/13 §2.2–2.3), solo activa en plantillas CON diseño: cada campo con zona de valor (método ancla/regex) se combina con lo que hay dentro de su zona en la página recortada, usando el desplazamiento global y la tolerancia del diseño. Sin diseño, la extracción es idéntica a la de siempre. No requiere migración. También: `DELETE …/paginas/{n}/recorte` para quitar un recorte manual y volver al automático.
+
+**Validado por QA (siguiendo las 3 reglas nuevas: documentos y plantillas propios, plantillas de prueba inactivas y forzadas por `plantilla_id`, borradas al terminar, estado final confirmado con consulta):**
+1. **Unitarias:** pytest **284/284** (igual a Desarrollo). Las 15 pruebas de `tests/test_cuadricula_extraccion.py` cubren exactamente los casos del pedido: sin diseño no cambia nada; etiqueta y zona coinciden (+confianza); etiqueta ilegible rescatada por la zona; discrepancia con diseño verificado (gana la zona) y sin verificar (gana la etiqueta), ambas con advertencia; sin recorte fiable la zona no se usa; desplazamiento global y tolerancia; método `zona` con diseño; etiquetas pegadas/duplicadas; palabras de una etiqueta fija que nunca se cuelan en la zona del valor; la segunda opinión hereda el recorte; el procesamiento real usa el diseño de la plantilla; `DELETE /recorte` vuelve al automático.
+2. **Regresión con las 3 plantillas semilla (sin diseño):** subí una cédula, una planilla y una cuenta de contrato sintéticas — mismos campos, mismas advertencias (incluida la ya conocida `campo_obligatorio_faltante:fecha_emision` de `cuenta_contrato`, por la imagen de prueba) y tiempos del orden esperado; ninguna advertencia `campo_fuera_de_zona` apareció, como corresponde sin diseño.
+3. **Plantillas de prueba CON diseño (overlay, sin rebuild), inactivas y forzadas por `plantilla_id`, sobre una tarjeta sintética propia sin datos personales** (3 campos: `apellidos` con ancla y zona correctas; `nombres` con un ancla que no existe en la tarjeta a propósito; `sexo` con ancla real pero zona de valor puesta deliberadamente en el lugar de otro campo):
+   - a) etiqueta y zona coinciden → `apellidos` sin advertencia, confianza subió a 1,0 (tope).
+   - b) etiqueta ilegible/ausente → `nombres` lo rescata la zona (confianza ×0,8).
+   - c) discrepancia con diseño verificado → `sexo` queda con el valor de la zona y advertencia `campo_fuera_de_zona:sexo`.
+   - d) con una segunda plantilla de prueba, misma tarjeta pero `diseno.relacion` muy distinto (recorte no confiable): `apellidos` sigue por la etiqueta de siempre, `nombres` queda vacío (la zona no rescata) y `sexo` no tiene advertencia — exactamente "sin recorte fiable, la zona no se usa".
+4. **`DELETE /paginas/{n}/recorte`**, sobre un documento propio con recorte manual: vuelve a `origen="ninguno"`/`"automatico"`; un reproceso normal posterior no lo recupera; sobre un documento sin recorte manual previo equivale a reprocesar (200); página fuera de rango → 404. **No se usó el documento real `3887F15B` para esta prueba** (aunque Desarrollo lo sugirió como caso útil): el Líder pidió explícitamente no reprocesar ni modificar documentos del usuario, y la prueba con documentos propios ya cubre el comportamiento del endpoint por completo.
+5. **Latencia:** no medí aparte — por diseño del cambio (sin diseño = cero camino nuevo ejecutado) y porque las 3 plantillas reales no tienen diseño, no hay impacto en los documentos reales. El coste que reporta Desarrollo (+10 ms con diseño) es coherente con lo que se observa al comparar mis pruebas con/sin diseño en esta ronda.
+6. **Limpieza:** antes de borrar, listé todos los documentos reales presentes (6 distintos en este momento, más que en la ronda anterior — hay actividad real en curso) y confirmé que ninguno de mis 4 hashes de archivo coincidía con los suyos. Borré por id, en orden de FK, mis 6 documentos de prueba y sus 4 archivos; borré las 2 plantillas de prueba completas (`CampoPlantilla`→`PalabraClave`→`PlantillaVersion`→`Plantilla`). Verifiqué con consulta: quedan exactamente las 3 plantillas de producción y los 6 documentos reales, sin tocar ninguno.
+
+**Veredicto QA: aprobado para que el Líder lo despliegue.** Código, comportamiento zona+etiqueta y el nuevo `DELETE /recorte` correctos; sin regresión en plantillas sin diseño; sin incidentes esta vez.
+
+## Nota: cambio de nivel de validación (2026-11-20, mismo día)
+
+Por pedido del usuario (vía Líder OCR), desde la entrega 3 de la cuadrícula las validaciones por entrega pasan a **nivel ligero** (fase de validación, no de pruebas finales): pytest completo una vez; migración ejecutada y confirmada con consulta si aplica; 1–2 documentos propios de humo (caso principal + que una plantilla sin diseño siga igual); veredicto breve y una entrada corta en el informe. La entrega 3 (sección 16, arriba) ya se validó con más profundidad de la que pide este nivel — queda como está, no hace falta repetirla.
+
+**Pendiente para la fase de pruebas finales** (acumulado; no bloquea el despliegue de ninguna entrega ya aprobada):
+- Baterías exhaustivas de escenarios por entrega (más allá del caso principal + humo).
+- Casos límite de validación (422/404) no cubiertos por el nivel ligero.
+- Mediciones de latencia antes/después, salvo que una entrega toque OCR o preprocesado.
+- Revisión línea a línea del diff de cada entrega (el nivel ligero no la exige).
+- Repetir contra el documento real `3887F15B` lo que el nivel ligero no alcance a cubrir con documentos propios (recorte manual avanzado, etc.), si para entonces sigue siendo útil como caso.
+
+## 17. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.

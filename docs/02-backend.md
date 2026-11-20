@@ -73,6 +73,7 @@ Base: `http://localhost:8000/api`. Todas las rutas requieren cabecera `X-API-Key
 | `GET` | `/documentos/{id}/paginas/{n}/enderezada` | Página recortada, girada y enderezada, en color: el marco de las coordenadas de `/palabras`. Cabeceras `X-Recorte-Confiable`, `X-Recorte-Origen` (`automatico`/`manual`/`ninguno`/`pdf`/`desconocido`) y `X-Orientacion`. `?relacion=` opcional para juzgar el recorte con la proporción de una plantilla nueva (docs/13 §7); `?formato=jpeg` (calidad 90) para móvil, PNG por defecto. |
 | `GET` | `/documentos/{id}/paginas/{n}/palabras` | `{pagina, recorte: {confiable, aplicado, origen, esquinas, relacion, orientacion}, palabras: [{texto, x, y, ancho, alto, confianza}]}` con coordenadas relativas 0–1. 404 «Reprocese el documento…» si es anterior a la migración 009. |
 | `POST` | `/documentos/{id}/paginas/{n}/recorte` | Recorte y/o giro manual: `{esquinas?: [[x,y]×4], orientacion?: 0\|90\|180\|270}`. Las esquinas son relativas a la imagen original (arriba-izq, arriba-der, abajo-der, abajo-izq). Valida (422 si no es un cuadrilátero convexo razonable), reprocesa y devuelve el resultado. Los reprocesos posteriores conservan el recorte manual. |
+| `DELETE` | `/documentos/{id}/paginas/{n}/recorte` | Quita el recorte/giro manual de la página y reprocesa con la detección automática; devuelve el resultado. |
 | `POST` | `/documentos/{id}/reprocesar` | Vuelve a ejecutar el pipeline (por ejemplo, tras editar una plantilla) |
 
 ### Plantillas
@@ -192,6 +193,12 @@ score = suma(peso_i × presencia_i) / suma(peso_i)        # palabras clave, con 
 
 ### 4.5 Extracción
 Aplica cada campo de la plantilla ganadora con su método. La confianza del campo combina la confianza OCR media de las palabras usadas y si el validador del tipo de dato aceptó el valor.
+
+**Plantillas con diseño (cuadrícula, docs/13 §2):**
+- Cada campo con zona de valor combina la lectura de la etiqueta con lo que hay en su zona: coinciden (+0,05), rescate si la etiqueta no leyó nada (×0,8), o desempate si discrepan.
+- Antes se corrige el desplazamiento global con las etiquetas fijas y se aplica una tolerancia.
+- Si la lectura queda fuera de su zona, se agrega la advertencia `campo_fuera_de_zona:<campo>`.
+- Sin recorte fiable, o sin diseño, la extracción es la de siempre.
 
 **Catálogo de valores** (`"catalogo": [...]` en la regla, opcional): lista de formas canónicas del campo (p. ej. los gentilicios de `nacionalidad` en la cédula, migración 008).
 - Si la regla encuentra un valor que coincide con un elemento, o está a **un** carácter de distancia (Levenshtein ≤ 1, sin distinguir mayúsculas ni tildes), el valor guardado es la forma canónica. Ejemplo: `LCUATORIANA` se guarda como `ECUATORIANA`. `ValorTexto` conserva lo que leyó el OCR.

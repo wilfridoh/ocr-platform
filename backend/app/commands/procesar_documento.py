@@ -16,7 +16,7 @@ from ..pipeline.extractor import extraer_campos
 from ..pipeline.ingesta import ErrorIngesta, extension_de
 from ..pipeline.orquestador import ErrorPipeline, procesar_bytes, proveedor_segunda_opinion
 from ..persistencia import repositorios as repo
-from ._convertir import campos_de_version, palabras_clave_de_version
+from ._convertir import campos_de_version, diseno_de_version, palabras_clave_de_version
 from .errores import DocumentoPurgado  # noqa: F401  (reexportado)
 
 
@@ -140,6 +140,7 @@ def _procesar_documento(
                 proveedor_segunda_opinion(doc_ingresado, settings, motor_usado),
                 settings.OCR_UMBRAL_SEGUNDA_OPINION,
                 settings.OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS,
+                diseno_de_version(version_ganadora),
             )
         tiempos["extraccion"] = int((time.perf_counter() - t0) * 1000)
 
