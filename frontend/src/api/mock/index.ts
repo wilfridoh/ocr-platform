@@ -8,8 +8,10 @@ import type {
   FlujoCapturaEntrada,
   FlujoPublico,
   ListaPaginada,
+  PalabraPosicion,
   Plantilla,
   PlantillaEntrada,
+  RecorteInfo,
   Resultado,
   ResultadoPublico,
   ResumenPurga,
@@ -42,6 +44,26 @@ let plantillas: Plantilla[] = plantillasMock.map((p) => ({
 let documentos: Documento[] = [...documentosMock]
 const resultados: Record<string, Resultado> = { ...resultadosMock }
 let siguienteIdPlantilla = Math.max(...plantillas.map((p) => p.id)) + 1
+
+// Cuadrícula: tarjeta ficticia con palabras en posiciones relativas (sin datos de personas reales)
+const PALABRAS_TARJETA_MOCK: PalabraPosicion[] = [
+  { texto: 'TARJETA DE EJEMPLO', x: 0.3, y: 0.03, ancho: 0.4, alto: 0.06, confianza: 0.98 },
+  { texto: 'APELLIDOS', x: 0.33, y: 0.2, ancho: 0.15, alto: 0.04, confianza: 0.97 },
+  { texto: 'MUESTRA EJEMPLO', x: 0.33, y: 0.26, ancho: 0.32, alto: 0.06, confianza: 0.95 },
+  { texto: 'NOMBRES', x: 0.33, y: 0.38, ancho: 0.13, alto: 0.04, confianza: 0.96 },
+  { texto: 'ALEX', x: 0.33, y: 0.44, ancho: 0.1, alto: 0.06, confianza: 0.93 },
+  { texto: 'NACIMIENTO', x: 0.33, y: 0.58, ancho: 0.17, alto: 0.04, confianza: 0.94 },
+  { texto: '01 ENE 1990', x: 0.33, y: 0.64, ancho: 0.2, alto: 0.06, confianza: 0.62 },
+  { texto: 'VÁLIDA HASTA', x: 0.33, y: 0.78, ancho: 0.2, alto: 0.04, confianza: 0.95 },
+  { texto: '01 ENE 2030', x: 0.33, y: 0.84, ancho: 0.2, alto: 0.06, confianza: 0.91 },
+]
+const recortesMock: Record<string, RecorteInfo> = {}
+
+function recorteMock(id: string): RecorteInfo {
+  return (
+    recortesMock[id] ?? { confiable: true, aplicado: true, origen: 'automatico', esquinas: [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]], relacion: 1.586, orientacion: 0 }
+  )
+}
 
 // --- Roles, flujos y usuarios de demostración (docs/07) ---------------------------------------------
 const CLAVE_ROL_MOCK = 'ocr_mock_rol'
@@ -237,6 +259,46 @@ export const apiMock: ClienteApi = {
     const resultado = resultados[id]
     if (!resultado) throw new Error('Documento no encontrado')
     return esperar(resultado, 900)
+  },
+
+  // --- Cuadrícula de zonas (docs/13 §7): tarjeta ficticia, sin datos de personas reales -----------------
+  async obtenerImagenEnderezada(id) {
+    const r = recorteMock(id)
+    const textos = PALABRAS_TARJETA_MOCK.map(
+      (p) =>
+        `<text x="${p.x * 856}" y="${(p.y + p.alto * 0.8) * 540}" font-family="Arial" font-size="${p.alto * 540 * 0.8}" fill="${p.confianza < 0.7 ? '#94a3b8' : '#1e293b'}">${p.texto}</text>`,
+    ).join('')
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="856" height="540">
+      <rect width="100%" height="100%" rx="24" fill="#eef2f7" stroke="#cbd5e1" />
+      <rect width="100%" height="64" rx="24" fill="#1e3a8a" />
+      <rect x="40" y="110" width="200" height="250" rx="12" fill="#cbd5e1" />${textos}
+    </svg>`
+    return esperar({ blob: new Blob([svg], { type: 'image/svg+xml' }), confiable: r.confiable, origen: r.origen, orientacion: r.orientacion }, 250)
+  },
+
+  async obtenerPalabras(id, pagina) {
+    if (pagina !== 1) throw new ErrorApi(404, 'Página fuera de rango')
+    return esperar({ pagina, recorte: recorteMock(id), palabras: PALABRAS_TARJETA_MOCK }, 200)
+  },
+
+  async recortarPagina(id, _pagina, entrada) {
+    const anterior = recorteMock(id)
+    const esquinas = entrada.esquinas ?? (anterior.origen === 'manual' ? anterior.esquinas : null)
+    recortesMock[id] = {
+      ...anterior,
+      confiable: true,
+      aplicado: !!esquinas,
+      origen: esquinas ? 'manual' : anterior.origen,
+      esquinas,
+      orientacion: entrada.orientacion ?? 0,
+    }
+    const resultado = resultados[id] ?? resultadoMockCompleto
+    return esperar(resultado, 1200)
+  },
+
+  async quitarRecortePagina(id) {
+    delete recortesMock[id]
+    return esperar(resultados[id] ?? resultadoMockCompleto, 1000)
   },
 
   async listarPlantillas(activa) {

@@ -1,6 +1,9 @@
 import type {
   Documento,
   EstadoDocumento,
+  ImagenEnderezada,
+  Orientacion,
+  PalabrasPagina,
   FiltrosDocumentos,
   ListaPaginada,
   Plantilla,
@@ -40,6 +43,24 @@ export interface ClienteApi {
   descargarArchivo(id: string): Promise<Blob>
   obtenerImagenPagina(id: string, pagina: number): Promise<Blob>
   reprocesarDocumento(id: string): Promise<Resultado>
+
+  // Cuadrícula de zonas (docs/13 §7)
+  /** Página recortada y enderezada en color: el marco de las coordenadas de `obtenerPalabras` */
+  obtenerImagenEnderezada(
+    id: string,
+    pagina: number,
+    opciones?: { relacion?: number | null; formato?: 'png' | 'jpeg' },
+  ): Promise<ImagenEnderezada>
+  /** Palabras del OCR con posición relativa. Error 404 si el documento es anterior a la función (hay que reprocesarlo). */
+  obtenerPalabras(id: string, pagina: number, relacion?: number | null): Promise<PalabrasPagina>
+  /** Recorte y/o giro manual: reprocesa el documento con esas esquinas (relativas a la imagen original) */
+  recortarPagina(
+    id: string,
+    pagina: number,
+    entrada: { esquinas?: [number, number][] | null; orientacion?: Orientacion },
+  ): Promise<Resultado>
+  /** Quita el recorte manual y vuelve a la detección automática (reprocesa) */
+  quitarRecortePagina(id: string, pagina: number): Promise<Resultado>
 
   // Plantillas
   listarPlantillas(activa?: boolean): Promise<Plantilla[]>

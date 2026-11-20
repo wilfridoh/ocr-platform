@@ -56,6 +56,8 @@ export default function EditarPlantilla() {
         umbral_confianza: umbral,
         palabras_clave: palabrasClave,
         campos,
+        // la cuadrícula se edita en su propia pantalla; aquí se reenvía tal cual para que la versión nueva no la pierda
+        diseno: plantillaQuery.data?.diseno ?? null,
       }),
   })
 
@@ -82,10 +84,26 @@ export default function EditarPlantilla() {
           </button>
           <h2 className="mt-1 text-[22px] font-bold tracking-[-0.01em] text-ink">Editar plantilla: {plantillaQuery.data?.codigo}</h2>
         </div>
-        <button type="button" className="boton-secundario" disabled={reprocesarTodos.isPending} onClick={() => reprocesarTodos.mutate()}>
-          {reprocesarTodos.isPending ? 'Reprocesando...' : 'Reprocesar documentos de esta plantilla'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="boton-secundario"
+            title="Marcar en qué zonas de la página está cada dato y qué textos impresos deben aparecer"
+            onClick={() => navigate(`/plantillas/${plantillaId}/zonas`)}
+          >
+            ▦ Cuadrícula{plantillaQuery.data?.diseno ? ' ✓' : ''}
+          </button>
+          <button type="button" className="boton-secundario" disabled={reprocesarTodos.isPending} onClick={() => reprocesarTodos.mutate()}>
+            {reprocesarTodos.isPending ? 'Reprocesando...' : 'Reprocesar documentos de esta plantilla'}
+          </button>
+        </div>
       </div>
+      {cargado && plantillaQuery.data?.diseno && (
+        <p className="mb-4 rounded-md bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+          Esta plantilla tiene cuadrícula. Si guardas aquí, se conserva; para cambiar zonas usa «Cuadrícula» (guarda las
+          zonas por separado, así que guarda antes los cambios de esta pantalla).
+        </p>
+      )}
 
       {reprocesarTodos.isSuccess && (
         <p className="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">

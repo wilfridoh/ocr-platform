@@ -1,10 +1,13 @@
 import type { ClienteApi } from './contrato'
 import { ErrorApi } from '@/tipos'
 import { adaptarAdvertencia, adaptarDocumento, adaptarPlantilla, adaptarResultado, type DocumentoApi } from './adaptadores'
-import { aQuery, solicitar, solicitarBlob, solicitarPublico } from './http'
+import { aQuery, solicitar, solicitarBlob, solicitarBlobConCabeceras, solicitarPublico } from './http'
 import type {
   Documento,
   FiltrosDocumentos,
+  OrigenRecorte,
+  Orientacion,
+  PalabrasPagina,
   ListaPaginada,
   Plantilla,
   FlujoCaptura,
@@ -60,6 +63,26 @@ export const apiHttp: ClienteApi = {
   obtenerImagenPagina: (id, pagina) => solicitarBlob(`/documentos/${id}/paginas/${pagina}`),
   reprocesarDocumento: (id) =>
     solicitar<Resultado>(`/documentos/${id}/reprocesar`, { method: 'POST' }).then(adaptarResultado),
+
+  async obtenerImagenEnderezada(id, pagina, opciones = {}) {
+    const { blob, cabeceras } = await solicitarBlobConCabeceras(
+      `/documentos/${id}/paginas/${pagina}/enderezada${aQuery({ relacion: opciones.relacion, formato: opciones.formato })}`,
+    )
+    return {
+      blob,
+      confiable: cabeceras.get('X-Recorte-Confiable') === 'true',
+      origen: (cabeceras.get('X-Recorte-Origen') ?? 'desconocido') as OrigenRecorte,
+      orientacion: Number(cabeceras.get('X-Orientacion') ?? 0) as Orientacion,
+    }
+  },
+  obtenerPalabras: (id, pagina, relacion) =>
+    solicitar<PalabrasPagina>(`/documentos/${id}/paginas/${pagina}/palabras${aQuery({ relacion })}`),
+  recortarPagina: (id, pagina, entrada) =>
+    solicitar<Resultado>(`/documentos/${id}/paginas/${pagina}/recorte`, { method: 'POST', body: entrada }).then(
+      adaptarResultado,
+    ),
+  quitarRecortePagina: (id, pagina) =>
+    solicitar<Resultado>(`/documentos/${id}/paginas/${pagina}/recorte`, { method: 'DELETE' }).then(adaptarResultado),
 
   listarPlantillas: (activa) =>
     solicitar<Plantilla[]>(`/plantillas${aQuery({ activa })}`).then((l) => l.map(adaptarPlantilla)),

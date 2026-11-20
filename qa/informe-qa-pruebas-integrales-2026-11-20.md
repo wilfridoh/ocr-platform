@@ -364,6 +364,14 @@ Por pedido del usuario (vía Líder OCR), desde la entrega 3 de la cuadrícula l
 - Revisión línea a línea del diff de cada entrega (el nivel ligero no la exige).
 - Repetir contra el documento real `3887F15B` lo que el nivel ligero no alcance a cubrir con documentos propios (recorte manual avanzado, etc.), si para entonces sigue siendo útil como caso.
 
-## 17. Limpieza al cierre
+## 17. Editor de cuadrícula (frontend), nivel ligero (2026-11-20, mismo día)
+
+Qué se probó: `tsc --noEmit` sin errores (confirmado, igual que Desarrollo). Humo en navegador contra el backend real (`npm run dev:real`), con una plantilla de prueba propia inactiva (`qa_editor_zonas`, forzada por `plantilla_id`) y un documento sintético propio: el editor en `/plantillas/{id}/zonas` carga el documento de ejemplo, dibuja la rejilla y las zonas guardadas sobre la imagen correctamente (etiqueta sobre "APELLIDOS", valor sobre "PEREZ SOTO", con su "Lee:" correcto); marcar una zona haciendo clic en otra palabra la mueve y habilita "Guardar zonas" (antes deshabilitado sin cambios); `Ctrl+Z` revierte el cambio; "Guardar zonas" hace el `PUT` real (200) y crea versión nueva. Confirmé además que una plantilla real sin diseño (`cedula_identidad`) sigue mostrando el botón "▦ Cuadrícula" sin el check de "tiene cuadrícula" — sin tocarla ni guardar nada ahí.
+
+Resultado: correcto. Veredicto: **aprobado**.
+
+Pendiente para pruebas finales (se suma a la lista de la nota anterior): escenarios de "Ajustar esquinas"/girar/"Usar de todos modos" con recorte no fiable, "Quitar recorte manual" desde la UI, elementos fijos, ancho móvil, y la pestaña "Validar un documento" (llega con la entrega 4).
+
+## 18. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.

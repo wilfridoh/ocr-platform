@@ -36,7 +36,43 @@ export const ETIQUETAS_TIPO_DATO: Record<TipoDato, string> = {
 export const METODOS_REGLA = ['ancla', 'regex', 'zona'] as const
 export type MetodoRegla = (typeof METODOS_REGLA)[number]
 
-export interface ReglaAncla {
+/** Rectángulo relativo (0-1) sobre la página recortada y enderezada (docs/13 §1). */
+export interface ZonaRelativa {
+  x: number
+  y: number
+  ancho: number
+  alto: number
+  pagina?: number | null
+}
+
+/** Etiqueta fija impresa: texto que debe aparecer en esa zona (valida el diseño). */
+export interface ZonaEtiqueta extends ZonaRelativa {
+  texto_esperado: string
+}
+
+/** Zonas opcionales de cualquier regla (cuadrícula, docs/13 §1.1): la del valor y la de su etiqueta impresa. */
+export interface ZonasDeRegla {
+  x?: number | null
+  y?: number | null
+  ancho?: number | null
+  alto?: number | null
+  pagina?: number | null
+  zona_etiqueta?: ZonaEtiqueta | null
+}
+
+/** Diseño por posición de una versión de plantilla (docs/13 §1.2). Nada atado a un formato concreto. */
+export interface DisenoPlantilla {
+  formato: string
+  /** Lado mayor / lado menor esperado (ID-1 1,586; A4 1,414...) */
+  relacion?: number | null
+  umbral_coincidencia: number
+  tolerancia: number
+  /** Solo de la UI, p. ej. "12x8" */
+  densidad_rejilla?: string | null
+  elementos_fijos: ZonaEtiqueta[]
+}
+
+export interface ReglaAncla extends ZonasDeRegla {
   metodo: 'ancla'
   /** Texto que precede al dato, p. ej. "N° Cliente" */
   ancla: string
@@ -44,7 +80,7 @@ export interface ReglaAncla {
   regex?: string
 }
 
-export interface ReglaRegex {
+export interface ReglaRegex extends ZonasDeRegla {
   metodo: 'regex'
   /** Expresión sobre el texto completo; el grupo 1 es el valor */
   regex: string
@@ -53,6 +89,7 @@ export interface ReglaRegex {
 export interface ReglaZona {
   metodo: 'zona'
   pagina: number
+  zona_etiqueta?: ZonaEtiqueta | null
   /** Coordenadas relativas 0-1 respecto al tamaño de la página */
   x: number
   y: number
@@ -84,6 +121,8 @@ export interface PlantillaEntrada {
   umbral_confianza: number
   palabras_clave: PalabraClave[]
   campos: Campo[]
+  /** Cuadrícula de la versión; null = sin cuadrícula. Hay que reenviarlo al guardar o la versión nueva lo pierde. */
+  diseno?: DisenoPlantilla | null
 }
 
 export interface Plantilla extends PlantillaEntrada {
@@ -257,6 +296,45 @@ export interface CajaRelativa {
   y: number
   ancho: number
   alto: number
+}
+
+// ---------------------------------------------------------------------------
+// Cuadrícula de zonas: recorte y posiciones (docs/13 §7)
+// ---------------------------------------------------------------------------
+
+export type OrigenRecorte = 'automatico' | 'manual' | 'ninguno' | 'pdf' | 'desconocido'
+export type Orientacion = 0 | 90 | 180 | 270
+
+export interface RecorteInfo {
+  confiable: boolean
+  aplicado: boolean
+  origen: OrigenRecorte
+  /** 4 esquinas relativas a la imagen ORIGINAL: arriba-izq, arriba-der, abajo-der, abajo-izq */
+  esquinas: [number, number][] | null
+  relacion: number | null
+  orientacion: Orientacion
+}
+
+export interface PalabraPosicion {
+  texto: string
+  x: number
+  y: number
+  ancho: number
+  alto: number
+  confianza: number
+}
+
+export interface PalabrasPagina {
+  pagina: number
+  recorte: RecorteInfo
+  palabras: PalabraPosicion[]
+}
+
+export interface ImagenEnderezada {
+  blob: Blob
+  confiable: boolean
+  origen: OrigenRecorte
+  orientacion: Orientacion
 }
 
 export interface CampoExtraido {

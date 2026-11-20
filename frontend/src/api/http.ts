@@ -56,6 +56,19 @@ export async function solicitar<T>(ruta: string, opciones: Opciones = {}): Promi
   return (await res.json()) as T
 }
 
+/** Como solicitarBlob, pero devuelve también las cabeceras (p. ej. X-Recorte-* de la imagen enderezada). */
+export async function solicitarBlobConCabeceras(ruta: string): Promise<{ blob: Blob; cabeceras: Headers }> {
+  const cabeceras = new Headers()
+  const clave = obtenerClaveApi()
+  if (clave) cabeceras.set('X-API-Key', clave)
+  const res = await fetch(`${BASE_URL}${ruta}`, { headers: cabeceras })
+  if (!res.ok) {
+    const { mensaje } = await extraerMensaje(res)
+    throw new ErrorApi(res.status, mensaje)
+  }
+  return { blob: await res.blob(), cabeceras: res.headers }
+}
+
 export async function solicitarBlob(ruta: string): Promise<Blob> {
   const cabeceras = new Headers()
   const clave = obtenerClaveApi()

@@ -7,6 +7,7 @@ import DetalleDocumento from '@/paginas/DetalleDocumento'
 import Plantillas from '@/paginas/Plantillas'
 import NuevaPlantilla from '@/paginas/NuevaPlantilla'
 import EditarPlantilla from '@/paginas/EditarPlantilla'
+import ZonasPlantilla from '@/paginas/ZonasPlantilla'
 import ConfigurarAcceso from '@/paginas/ConfigurarAcceso'
 import Flujos from '@/paginas/Flujos'
 import EditarFlujo from '@/paginas/EditarFlujo'
@@ -35,6 +36,7 @@ function App() {
             <Route path="plantillas" element={<Plantillas />} />
             <Route path="plantillas/nueva" element={<RequiereRol minimo="Editor"><NuevaPlantilla /></RequiereRol>} />
             <Route path="plantillas/:id" element={<RequiereRol minimo="Editor"><EditarPlantilla /></RequiereRol>} />
+            <Route path="plantillas/:id/zonas" element={<RequiereRol minimo="Editor"><ZonasPlantilla /></RequiereRol>} />
             <Route path="flujos-captura" element={<Flujos />} />
             <Route path="flujos-captura/nuevo" element={<EditarFlujo />} />
             <Route path="flujos-captura/:id" element={<EditarFlujo />} />

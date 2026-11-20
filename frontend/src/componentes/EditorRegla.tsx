@@ -23,9 +23,21 @@ export default function EditorRegla({ regla, onCambiar, imagenSrc, valorEnVivo }
   const cambiarMetodo = (metodo: MetodoRegla) => {
     setPestana(metodo)
     if (metodo === regla.metodo) return
-    if (metodo === 'ancla') onCambiar({ metodo: 'ancla', ancla: '', regex: '' })
-    else if (metodo === 'regex') onCambiar({ metodo: 'regex', regex: '' })
-    else onCambiar({ metodo: 'zona', pagina: 1, x: 0.1, y: 0.1, ancho: 0.3, alto: 0.05 })
+    // las zonas marcadas en la cuadrícula (valor y etiqueta) no dependen del método: se conservan al cambiarlo
+    const { x, y, ancho, alto, pagina, zona_etiqueta } = regla
+    const zonas = { x, y, ancho, alto, pagina, zona_etiqueta }
+    if (metodo === 'ancla') onCambiar({ ...zonas, metodo: 'ancla', ancla: '', regex: '' })
+    else if (metodo === 'regex') onCambiar({ ...zonas, metodo: 'regex', regex: '' })
+    else
+      onCambiar({
+        metodo: 'zona',
+        pagina: pagina ?? 1,
+        x: x ?? 0.1,
+        y: y ?? 0.1,
+        ancho: ancho ?? 0.3,
+        alto: alto ?? 0.05,
+        zona_etiqueta,
+      })
   }
 
   return (
