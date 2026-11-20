@@ -346,15 +346,20 @@ export const apiMock: ClienteApi = {
     return esperar(actualizada, 250)
   },
 
-  async sugerirPlantilla(documentoId) {
-    const resultado = resultados[documentoId]
+  async sugerirPlantilla(documentoIds) {
+    // como el servidor: con un solo ejemplo, las sugerencias llegan para revisar
+    const revisar = documentoIds.length < 2
     const sugerencia: SugerenciaPlantilla = {
       palabras_clave: [
-        { texto: 'número de cliente', peso: 3 },
-        { texto: 'total a pagar', peso: 3 },
-        { texto: 'fecha de vencimiento', peso: 2 },
-        { texto: 'dirección', peso: 1 },
-        { texto: 'consumo', peso: 1 },
+        { texto: 'número de cliente', peso: 3, revisar },
+        { texto: 'total a pagar', peso: 3, revisar },
+        { texto: 'fecha de vencimiento', peso: 2, revisar },
+        { texto: 'dirección', peso: 1, revisar },
+        { texto: 'consumo', peso: 1, revisar },
+      ],
+      zonas_sugeridas: [
+        { x: 0.3, y: 0.03, ancho: 0.4, alto: 0.06, pagina: 1, texto_esperado: 'TARJETA DE EJEMPLO' },
+        { x: 0.33, y: 0.2, ancho: 0.15, alto: 0.04, pagina: 1, texto_esperado: 'APELLIDOS' },
       ],
       campos: [
         {
@@ -380,7 +385,6 @@ export const apiMock: ClienteApi = {
         } as Campo,
       ],
     }
-    void resultado
     return esperar(sugerencia, 700)
   },
 

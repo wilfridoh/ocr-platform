@@ -387,6 +387,22 @@ Resultado: correcto. Veredicto: **aprobado**.
 
 Pendiente para pruebas finales: cruzar el caso a `"no_coincide"` con su advertencia; orientación automática 90°/180° (releer, conservar solo la manual al reprocesar); el resto de la lista acumulada en las secciones anteriores.
 
-## 20. Limpieza al cierre
+## 21. Cuadrícula de zonas, entrega 5: sugeridor con varios ejemplos y asistente de nueva plantilla (2026-11-20, mismo día), nivel ligero
+
+Qué se probó: pytest **308/308** (1 corrida). Sin migración. `tsc` del frontend, limpio.
+
+Humo del backend, con 4 documentos propios del mismo tipo (cédula sintética):
+- 2 ejemplos → `palabras_clave` sin ningún `"revisar": true`, 10 términos sugeridos, `zonas_sugeridas` con 10 etiquetas y sus cajas.
+- 1 ejemplo → los mismos términos típicos, todos con `"revisar": true`, como se pidió.
+- 4 `documento_id` → `400` ("Como máximo 3 documentos de ejemplo"); sin ninguno → `422`.
+- **Caveat de metodología (no es un hallazgo de bug):** mis 4 imágenes de cédula sintética usan el mismo nombre de titular (`USUARIO SINTETICO QATEST ZZPRUEBA`) en todas, así que no pude comprobar que "los datos del titular quedan fuera" con 2+ ejemplos — al ser idéntico en ambos, el filtro correctamente lo trata como algo repetido, no como dato variable del titular. Para una prueba real de esa exclusión hace falta un segundo ejemplo con un nombre distinto; queda para pruebas finales.
+
+Humo de UI (`dev:real`), asistente de nueva plantilla: la navegué hasta el paso 1 y confirmé el conteo "n de 3" y el cambio de aviso ámbar (1 ejemplo) a verde (2 o más) subiendo mis propios documentos de ejemplo (inyectados como `File` desde bytes ya descargados de mis documentos propios, sin datos reales). **No pude completar el flujo de subida real → avance de pasos → precarga de zonas en la cuadrícula:** el navegador integrado de esta sesión no tiene una herramienta de carga de archivos nativa, y mi inyección manual de `File`/`DataTransfer` no disparó el `POST /api/documentos` real del componente (se quedó en "por procesar"). No creé ninguna plantilla por este camino, así que no hubo nada que limpiar de la UI. Dado que Desarrollo ya probó este flujo completo en modo mock y `tsc`/`build` están limpios, no bloqueo el veredicto por esto, pero lo anoto como límite de esta ronda.
+
+Resultado: correcto en todo lo que pude probar. Veredicto: **aprobado**.
+
+Pendiente para pruebas finales: exclusión de datos del titular con ejemplos de nombres distintos; el flujo completo del asistente de nueva plantilla en `dev:real` (subida real → precarga en cuadrícula), con alguna herramienta de carga de archivos; el resto de la lista acumulada en las secciones anteriores.
+
+## 22. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { Campo, PalabraClave, Resultado } from '@/tipos'
+import type { Campo, PalabraClave, Resultado, ZonaEtiqueta } from '@/tipos'
+import { MAX_EJEMPLOS_PLANTILLA } from '@/tipos'
 import CargaArchivo from '@/componentes/CargaArchivo'
 import VisorPagina from '@/componentes/VisorPagina'
 import EditorPalabrasClave from '@/componentes/EditorPalabrasClave'
@@ -11,7 +12,15 @@ import TablaCampos, { filasDesdeResultado } from '@/componentes/TablaCampos'
 import CargandoIndicador from '@/componentes/CargandoIndicador'
 import { probarEnMemoria } from '@/utilidades/probarEnMemoria'
 
-const PASOS = ['Documento de ejemplo', 'Identificación', 'Campos'] as const
+const PASOS = ['Documentos de ejemplo', 'Identificación', 'Campos'] as const
+
+/** Un documento de ejemplo del asistente: un archivo aún sin procesar o un documento ya procesado. */
+interface EjemploLocal {
+  clave: string
+  archivo?: File
+  url?: string | null
+  resultado?: Resultado
+}
 
 export default function NuevaPlantilla() {
   const navigate = useNavigate()
@@ -19,9 +28,12 @@ export default function NuevaPlantilla() {
   const documentoIdPrevio = location.state?.documentoId
 
   const [paso, setPaso] = useState(0)
-  const [archivo, setArchivo] = useState<File | null>(null)
-  const [urlVistaPrevia, setUrlVistaPrevia] = useState<string | null>(null)
-  const [resultadoEjemplo, setResultadoEjemplo] = useState<Resultado | null>(null)
+  const [ejemplos, setEjemplos] = useState<EjemploLocal[]>([])
+  const [activo, setActivo] = useState(0)
+  const [sugeridoPara, setSugeridoPara] = useState('')
+  const [zonasSugeridas, setZonasSugeridas] = useState<ZonaEtiqueta[]>([])
+  const resultadoEjemplo = ejemplos[0]?.resultado ?? null
+  const urlVistaPrevia = ejemplos[activo]?.url ?? ejemplos[0]?.url ?? null
 
   const [codigo, setCodigo] = useState('')
   const [nombre, setNombre] = useState('')
@@ -33,25 +45,24 @@ export default function NuevaPlantilla() {
   const resultadoPrevioQuery = useQuery({
     queryKey: ['resultado', documentoIdPrevio],
     queryFn: () => api.obtenerResultado(documentoIdPrevio!),
-    enabled: Boolean(documentoIdPrevio) && !resultadoEjemplo,
+    enabled: Boolean(documentoIdPrevio) && ejemplos.length === 0,
   })
 
   useEffect(() => {
-    if (resultadoPrevioQuery.data && !resultadoEjemplo) {
-      setResultadoEjemplo(resultadoPrevioQuery.data)
+    if (resultadoPrevioQuery.data && ejemplos.length === 0) {
+      setEjemplos([{ clave: resultadoPrevioQuery.data.documento_id, resultado: resultadoPrevioQuery.data }])
     }
-  }, [resultadoPrevioQuery.data, resultadoEjemplo])
+  }, [resultadoPrevioQuery.data, ejemplos.length])
 
-  const procesarEjemplo = useMutation({
-    mutationFn: (f: File) => api.procesarDocumento(f),
-    onSuccess: (resultado) => setResultadoEjemplo(resultado),
-  })
+  const procesarEjemplo = useMutation({ mutationFn: (f: File) => api.procesarDocumento(f) })
 
   const sugerir = useMutation({
-    mutationFn: (documentoId: string) => api.sugerirPlantilla(documentoId),
-    onSuccess: (sugerencia) => {
+    mutationFn: (documentoIds: string[]) => api.sugerirPlantilla(documentoIds),
+    onSuccess: (sugerencia, documentoIds) => {
       setPalabrasClave(sugerencia.palabras_clave)
       setCampos(sugerencia.campos)
+      setZonasSugeridas(sugerencia.zonas_sugeridas ?? [])
+      setSugeridoPara(documentoIds.join(','))
     },
   })
 
@@ -63,25 +74,48 @@ export default function NuevaPlantilla() {
         descripcion,
         activa: true,
         umbral_confianza: umbral,
-        palabras_clave: palabrasClave,
+        // "revisar" es solo una marca de la sugerencia: no se guarda
+        palabras_clave: palabrasClave.map(({ texto, peso }) => ({ texto, peso })),
         campos,
       }),
-    onSuccess: (plantilla) => navigate(`/plantillas/${plantilla.id}`),
+    onSuccess: (plantilla) => {
+      const primero = ejemplos[0]?.resultado?.documento_id
+      if (zonasSugeridas.length && primero) {
+        // las etiquetas sugeridas se precargan en la cuadrícula para revisarlas (no se guardan solas)
+        navigate(`/plantillas/${plantilla.id}/zonas?documento=${primero}`, { state: { zonasSugeridas } })
+      } else {
+        navigate(`/plantillas/${plantilla.id}`)
+      }
+    },
   })
 
-  const onArchivoSeleccionado = (f: File) => {
-    setArchivo(f)
-    if (urlVistaPrevia) URL.revokeObjectURL(urlVistaPrevia)
-    setUrlVistaPrevia(f.type.startsWith('image/') ? URL.createObjectURL(f) : null)
+  const agregarEjemplo = (f: File) => {
+    if (ejemplos.length >= MAX_EJEMPLOS_PLANTILLA) return
+    const url = f.type.startsWith('image/') ? URL.createObjectURL(f) : null
+    setEjemplos((es) => [...es, { clave: `${f.name}-${Date.now()}`, archivo: f, url }])
+    setActivo(ejemplos.length)
+  }
+
+  const quitarEjemplo = (clave: string) => {
+    setEjemplos((es) => {
+      const e = es.find((x) => x.clave === clave)
+      if (e?.url) URL.revokeObjectURL(e.url)
+      return es.filter((x) => x.clave !== clave)
+    })
+    setActivo(0)
   }
 
   const avanzarDesdePaso1 = async () => {
-    if (!resultadoEjemplo && archivo) {
-      const resultado = await procesarEjemplo.mutateAsync(archivo)
-      await sugerir.mutateAsync(resultado.documento_id)
-    } else if (resultadoEjemplo && palabrasClave.length === 0 && campos.length === 0) {
-      await sugerir.mutateAsync(resultadoEjemplo.documento_id)
+    // procesa los ejemplos que aún son solo archivos (uno tras otro: el OCR es pesado)
+    const listos: EjemploLocal[] = []
+    for (const e of ejemplos) {
+      if (e.resultado) listos.push(e)
+      else if (e.archivo) listos.push({ ...e, resultado: await procesarEjemplo.mutateAsync(e.archivo) })
     }
+    setEjemplos(listos)
+    const ids = listos.map((e) => e.resultado!.documento_id)
+    // se vuelve a sugerir solo si cambió el conjunto de ejemplos (no pisa ajustes hechos con los mismos)
+    if (ids.join(',') !== sugeridoPara) await sugerir.mutateAsync(ids)
     setPaso(1)
   }
 
@@ -113,36 +147,101 @@ export default function NuevaPlantilla() {
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <div>
           {paso === 0 && (
-            <div className="tarjeta p-4">
-              {resultadoEjemplo ? (
-                <div>
-                  <p className="mb-3 text-sm text-slate-600">
-                    Documento de ejemplo: <span className="font-medium">{resultadoEjemplo.archivo}</span>
-                  </p>
-                  <VisorPagina src={urlVistaPrevia} />
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-indigo-600">Ver texto OCR</summary>
-                    <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs text-slate-600">
-                      {resultadoEjemplo.texto_completo}
-                    </pre>
-                  </details>
-                  <button type="button" className="boton-secundario mt-3" onClick={() => setResultadoEjemplo(null)}>
-                    Elegir otro documento
-                  </button>
-                </div>
+            <div className="tarjeta space-y-4 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-slate-600">
+                  Sube de 1 a {MAX_EJEMPLOS_PLANTILLA} documentos del <b>mismo tipo</b>. Lo que se repite en todos pasa a ser
+                  palabra clave o etiqueta fija; los datos de cada titular quedan fuera.
+                </p>
+                <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  {ejemplos.length} de {MAX_EJEMPLOS_PLANTILLA}
+                </span>
+              </div>
+
+              {ejemplos.length > 0 && (
+                <ol className="divide-y divide-slate-100 rounded-md border border-slate-200">
+                  {ejemplos.map((e, i) => (
+                    <li key={e.clave} className={`flex items-center gap-3 px-3 py-2 text-sm ${i === activo ? 'bg-indigo-50' : ''}`}>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold">{i + 1}</span>
+                      <button type="button" className="flex-1 truncate text-left text-slate-700" onClick={() => setActivo(i)}>
+                        {e.resultado?.archivo ?? e.archivo?.name}
+                        <span className="ml-2 text-xs text-slate-400">{e.resultado ? 'procesado' : 'por procesar'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Quitar el ejemplo ${i + 1}`}
+                        className="text-slate-400 hover:text-red-600"
+                        disabled={procesarEjemplo.isPending || sugerir.isPending}
+                        onClick={() => quitarEjemplo(e.clave)}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              )}
+
+              {ejemplos.length === 1 && (
+                <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Con un solo ejemplo las sugerencias llegan <b>para revisar</b>: no hay con qué comparar para separar los textos
+                  impresos de los datos del titular. Agrega otro documento del mismo tipo si puedes.
+                </p>
+              )}
+              {ejemplos.length >= 2 && (
+                <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                  Con {ejemplos.length} ejemplos, lo que se repite en todos pasa a ser palabra clave o etiqueta fija; los datos del
+                  titular quedan fuera.
+                </p>
+              )}
+
+              {ejemplos.length < MAX_EJEMPLOS_PLANTILLA ? (
+                <CargaArchivo onArchivoSeleccionado={agregarEjemplo} archivoActual={null} />
               ) : (
-                <CargaArchivo onArchivoSeleccionado={onArchivoSeleccionado} archivoActual={archivo} />
+                <p className="text-center text-xs text-slate-400">Máximo {MAX_EJEMPLOS_PLANTILLA} ejemplos: quita uno para agregar otro.</p>
+              )}
+
+              {ejemplos[activo] && (
+                <div>
+                  {ejemplos.length > 1 && (
+                    <div className="mb-2 flex gap-1 text-xs">
+                      {ejemplos.map((e, i) => (
+                        <button
+                          key={e.clave}
+                          type="button"
+                          onClick={() => setActivo(i)}
+                          className={`rounded px-2 py-1 ${i === activo ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                          Ejemplo {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <VisorPagina src={ejemplos[activo].url ?? null} />
+                  {ejemplos[activo].resultado && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-sm text-indigo-600">Ver texto OCR</summary>
+                      <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs text-slate-600">
+                        {ejemplos[activo].resultado!.texto_completo}
+                      </pre>
+                    </details>
+                  )}
+                </div>
               )}
 
               {(procesarEjemplo.isPending || sugerir.isPending) && (
-                <CargandoIndicador etiqueta="Analizando el documento de ejemplo..." />
+                <CargandoIndicador
+                  etiqueta={procesarEjemplo.isPending ? 'Procesando los documentos de ejemplo...' : 'Buscando lo que tienen en común...'}
+                />
+              )}
+              {(procesarEjemplo.isError || sugerir.isError) && (
+                <p className="text-sm text-red-600">{((procesarEjemplo.error ?? sugerir.error) as Error).message}</p>
               )}
 
-              <div className="mt-4 flex justify-end">
+              <div className="flex justify-end">
                 <button
                   type="button"
                   className="boton-primario"
-                  disabled={!resultadoEjemplo && !archivo}
+                  disabled={ejemplos.length === 0 || procesarEjemplo.isPending || sugerir.isPending}
                   onClick={avanzarDesdePaso1}
                 >
                   Siguiente

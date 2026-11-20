@@ -109,6 +109,13 @@ Columnas nuevas en `Resultado`:
 | `RecorteJson NVARCHAR(MAX) NULL` | Por página guarda solo hechos: `{aplicado, origen: "automatico"\|"manual"\|"ninguno"\|"pdf", esquinas, relacion, orientacion, deskew}`. Las `esquinas` son las 4, relativas a la imagen original. `recorte_confiable` **se calcula al leer**, comparando `relacion` con el formato de la plantilla, y no se guarda. |
 | `CoincidenciaJson NVARCHAR(MAX) NULL` | El bloque `coincidencia` del resultado (§3.3). Llega en la entrega 4, con su propia migración. |
 
+**Implementado en la entrega 5:**
+- Sugeridor con 1 a 3 ejemplos (§5.2; `pipeline/sugeridor_ejemplos.py`): `revisar` con un solo ejemplo,
+  `zonas_sugeridas`, cortes bilingües y filtro de confianza.
+- Asistente de nueva plantilla con 1 a 3 ejemplos (paso 1 según docs/12 §4 bis). Al crear la plantilla abre la
+  cuadrícula con las etiquetas sugeridas precargadas para revisarlas; no se guardan solas.
+- El antiguo `sugerir_palabras_clave` (TF-IDF) sigue en `pipeline/sugeridor.py`, pero el endpoint ya no lo usa.
+
 **Implementado en la entrega 4:**
 - Coincidencia de diseño (§3; `pipeline/zonas.py::calcular_coincidencia`), guardada en `Resultado.CoincidenciaJson`
   (migración 011) y devuelta como `coincidencia` en el resultado, en `/probar` y en el MCP.

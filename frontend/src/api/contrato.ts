@@ -68,7 +68,8 @@ export interface ClienteApi {
   crearPlantilla(entrada: PlantillaEntrada): Promise<Plantilla>
   actualizarPlantilla(id: number, entrada: PlantillaEntrada): Promise<Plantilla>
   cambiarEstadoPlantilla(id: number, activa: boolean): Promise<Plantilla>
-  sugerirPlantilla(documentoId: string): Promise<SugerenciaPlantilla>
+  /** De 1 a 3 documentos de ejemplo del mismo tipo: con 2 o más, lo común es palabra clave y los datos del titular quedan fuera */
+  sugerirPlantilla(documentoIds: string[]): Promise<SugerenciaPlantilla>
   probarPlantilla(id: number, documentoId: string): Promise<Resultado>
   /** Versiones de una plantilla (opcional en el backend; el mock la implementa) */
   listarVersionesPlantilla(id: number): Promise<VersionPlantilla[]>

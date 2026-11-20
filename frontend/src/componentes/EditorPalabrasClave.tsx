@@ -51,7 +51,17 @@ export default function EditorPalabrasClave({ valor, onCambiar }: Props) {
         <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
           {valor.map((p) => (
             <li key={p.texto} className="flex items-center gap-3 px-3 py-2">
-              <span className="flex-1 text-sm text-slate-700">{p.texto}</span>
+              <span className="flex-1 text-sm text-slate-700">
+                {p.texto}
+                {p.revisar && (
+                  <span
+                    className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800"
+                    title="Sugerida con un solo documento de ejemplo: confirma que es un texto impreso del formato y no un dato del titular"
+                  >
+                    revisar
+                  </span>
+                )}
+              </span>
               <label className="flex items-center gap-2 text-xs text-slate-500">
                 Peso
                 <input

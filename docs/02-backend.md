@@ -85,7 +85,7 @@ Base: `http://localhost:8000/api`. Todas las rutas requieren cabecera `X-API-Key
 | `POST` | `/plantillas` | Crea plantilla |
 | `PUT` | `/plantillas/{id}` | Edita (crea nueva versión) |
 | `PATCH` | `/plantillas/{id}/estado` | Activa / desactiva |
-| `POST` | `/plantillas/sugerir` | Recibe un `documento_id` y devuelve palabras clave y campos sugeridos |
+| `POST` | `/plantillas/sugerir?documento_id=…` | De 1 a 3 documentos de ejemplo del mismo tipo (se repite `documento_id`). Devuelve `palabras_clave` (con `revisar` si hubo un solo ejemplo), `campos` y `zonas_sugeridas` (etiquetas fijas con su caja). Con más de 3 ejemplos: 400. |
 | `GET` | `/plantillas/{id}/versiones` | Historial de versiones: `[{version, fecha, comentario}]` (404 si la plantilla no existe) |
 | `POST` | `/plantillas/{id}/probar?documento_id=` | Aplica la plantilla a un documento ya procesado, sin guardar. Usa el texto y las posiciones guardadas. Cuerpo opcional `{campos?, diseno?}` para probar cambios sin guardar (vista previa del editor de cuadrícula). |
 | `POST` | `/plantillas/{id}/reprocesar` | Reprocesa todos los documentos clasificados con cualquier versión de esta plantilla; devuelve `{total, errores}` |
@@ -229,8 +229,18 @@ Construye el JSON del contrato (ver diseño general), calcula `confianza_global`
 
 ## 5. Sugerencia automática de plantillas
 
-Endpoint `POST /plantillas/sugerir`. Sobre el texto OCR de un documento de ejemplo:
-- **Palabras clave sugeridas**: n-gramas (1 a 3 palabras) con alta frecuencia en el documento y baja frecuencia en el resto del corpus procesado (TF-IDF). Se proponen las 10 mejores.
+Endpoint `POST /plantillas/sugerir`, con 1 a 3 documentos de ejemplo del mismo tipo (`pipeline/sugeridor_ejemplos.py`, docs/13 §5):
+- **Palabras clave sugeridas**: frases de 1 a 3 palabras útiles. Pueden llevar conectores dentro, como «fecha de nacimiento».
+  - **Con 2 o 3 ejemplos**: solo lo que se repite en todos (tolera errores de OCR). Así los datos de cada titular quedan fuera.
+  - **Con 1 ejemplo**: solo vocabulario de etiquetas conocido o texto del encabezado (el 20 % superior), y cada sugerencia sale con `revisar: true`.
+  - **Siempre**:
+    - se corta en «/», «|» y «:», y no se mezclan las mitades de una etiqueta bilingüe;
+    - se descartan los segmentos con cifras y las palabras leídas solo con confianza < 0,85;
+    - el encabezado pesa ×1,5;
+    - la mitad en inglés pesa ×0,5;
+    - lo que también aparece en documentos de otros tipos pesa menos.
+  - Se proponen las 10 mejores, con peso de 1 a 5.
+- **Zonas sugeridas**: líneas del primer ejemplo que son solo vocabulario de etiqueta (o una palabra clave sugerida), con su caja. Sirven para precargar la cuadrícula; el asistente las lleva al editor para revisarlas.
 - **Campos sugeridos**: patrones detectados con regex genéricos (fechas, montos, RUT/cédulas, correos, teléfonos, números largos) junto al texto ancla que los precede en la misma línea. El usuario los renombra y confirma.
 
 ## 6. Servidor MCP

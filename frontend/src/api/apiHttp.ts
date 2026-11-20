@@ -92,8 +92,11 @@ export const apiHttp: ClienteApi = {
   cambiarEstadoPlantilla: (id, activa) =>
     solicitar<Plantilla>(`/plantillas/${id}/estado`, { method: 'PATCH', body: { activa } }),
   // El backend recibe `documento_id` como parámetro de consulta (no en el cuerpo JSON).
-  sugerirPlantilla: (documentoId) =>
-    solicitar<SugerenciaPlantilla>(`/plantillas/sugerir${aQuery({ documento_id: documentoId })}`, { method: 'POST' }),
+  sugerirPlantilla: (documentoIds) => {
+    const q = new URLSearchParams()
+    documentoIds.forEach((id) => q.append('documento_id', id))
+    return solicitar<SugerenciaPlantilla>(`/plantillas/sugerir?${q.toString()}`, { method: 'POST' })
+  },
   probarPlantilla: (id, documentoId) =>
     solicitar<Resultado>(`/plantillas/${id}/probar${aQuery({ documento_id: documentoId })}`, { method: 'POST' }).then(
       adaptarResultado,

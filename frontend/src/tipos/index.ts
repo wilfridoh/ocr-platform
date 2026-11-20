@@ -110,6 +110,8 @@ export interface Campo {
 export interface PalabraClave {
   texto: string
   peso: number // 1-5
+  /** Sugerida con un solo documento de ejemplo: conviene revisarla (no se guarda) */
+  revisar?: boolean
 }
 
 /** Cuerpo de POST /plantillas y PUT /plantillas/{id} */
@@ -146,7 +148,12 @@ export interface VersionPlantilla {
 export interface SugerenciaPlantilla {
   palabras_clave: PalabraClave[]
   campos: Campo[]
+  /** Etiquetas fijas con su posición, para precargar la cuadrícula (si los ejemplos tienen posiciones guardadas) */
+  zonas_sugeridas?: ZonaEtiqueta[]
 }
+
+/** Máximo de documentos de ejemplo del asistente de plantilla (docs/13 §7) */
+export const MAX_EJEMPLOS_PLANTILLA = 3
 
 // ---------------------------------------------------------------------------
 // Roles, usuarios y flujos de captura (docs/07)

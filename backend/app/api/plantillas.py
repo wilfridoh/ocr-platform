@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ from ..commands.crear_plantilla import crear_plantilla as cmd_crear
 from ..commands.probar_plantilla import DocumentoSinResultado as DocSinResultadoProbar
 from ..commands.probar_plantilla import PlantillaNoExiste as PlantillaNoExisteProbar
 from ..commands.probar_plantilla import probar_plantilla as cmd_probar
-from ..commands.sugerir_plantilla import DocumentoSinResultado
+from ..commands.sugerir_plantilla import DemasiadosEjemplos, DocumentoSinResultado
 from ..commands.sugerir_plantilla import sugerir_plantilla as cmd_sugerir
 from ..dominio.modelos import CampoPlantillaDTO, DisenoPlantilla, PlantillaCrear, PlantillaEstado
 from .._convertir_a_dto import plantilla_a_dto
@@ -127,11 +127,13 @@ def cambiar_estado(
 
 @router.post("/sugerir")
 def sugerir(
-    documento_id: str, db: Session = Depends(get_db), _: Principal = Depends(requiere_rol("Editor"))
+    documento_id: list[str] = Query(..., description="De 1 a 3 documentos de ejemplo del mismo tipo (repetir el parámetro)"),
+    db: Session = Depends(get_db),
+    _: Principal = Depends(requiere_rol("Editor")),
 ) -> dict:
     try:
         sugerencia = cmd_sugerir(db, documento_id)
-    except DocumentoSinResultado as e:
+    except (DocumentoSinResultado, DemasiadosEjemplos) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     return sugerencia.model_dump(mode="json")
 

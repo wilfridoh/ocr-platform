@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type { Campo, DisenoPlantilla, Orientacion, PalabraPosicion, Regla, ZonaEtiqueta, ZonaRelativa } from '@/tipos'
@@ -65,9 +65,17 @@ export default function ZonasPlantilla() {
   const [resaltado, setResaltado] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
+  // etiquetas fijas sugeridas por el asistente de nueva plantilla (docs/13 §5): se precargan para revisarlas
+  const zonasSugeridas = (useLocation().state as { zonasSugeridas?: ZonaEtiqueta[] } | null)?.zonasSugeridas ?? []
+
   useEffect(() => {
     if (plantilla && !estado) {
-      setEstado({ campos: plantilla.campos, fijos: plantilla.diseno?.elementos_fijos ?? [] })
+      const precargar = !plantilla.diseno && zonasSugeridas.length > 0
+      setEstado({ campos: plantilla.campos, fijos: precargar ? zonasSugeridas : plantilla.diseno?.elementos_fijos ?? [] })
+      if (precargar)
+        setAviso(
+          `Precargamos ${zonasSugeridas.length} etiquetas fijas sugeridas (rayadas). Revísalas: borra las que no sean texto impreso del formato y pulsa «Guardar zonas».`,
+        )
       setDiseno(plantilla.diseno ?? DISENO_POR_DEFECTO)
       const primero = plantilla.campos[0]
       if (primero) setObjetivo({ tipo: 'campo', nombre: primero.nombre })

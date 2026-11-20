@@ -243,8 +243,16 @@ class DocumentoDTO(BaseModel):
     confianza_global: Optional[float] = None
 
 
+class PalabraClaveSugerida(PalabraClaveDTO):
+    # sugerida con un solo ejemplo: no hay con qué comparar para separar textos impresos de datos del titular
+    revisar: bool = False
+
+
 class SugerenciaPlantilla(BaseModel):
-    documento_id: str
-    palabras_clave: list[PalabraClaveDTO]
+    documento_id: str  # el primero (compatibilidad)
+    documento_ids: list[str] = Field(default_factory=list)
+    palabras_clave: list[PalabraClaveSugerida]
     campos: list[CampoPlantillaDTO]
     texto: str
+    # etiquetas fijas con su posición para precargar la cuadrícula (solo si el ejemplo tiene posiciones guardadas)
+    zonas_sugeridas: list[ZonaEtiqueta] = Field(default_factory=list)
