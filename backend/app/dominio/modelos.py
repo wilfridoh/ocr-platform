@@ -1,0 +1,197 @@
+"""Modelos Pydantic del dominio (independientes de HTTP y de la BD)."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+TIPOS_DATO = ("texto", "numero", "monto", "fecha", "rut", "cedula", "email", "telefono")
+METODOS = ("regex", "ancla", "zona")
+
+TipoDato = Literal["texto", "numero", "monto", "fecha", "rut", "cedula", "email", "telefono"]
+Metodo = Literal["regex", "ancla", "zona"]
+
+
+# ---------------------------------------------------------------- OCR
+class PalabraOCR(BaseModel):
+    texto: str
+    x: int
+    y: int
+    ancho: int
+    alto: int
+    confianza: float  # 0-1
+    linea: int
+    bloque: int
+    pagina: int = 1
+
+
+class PaginaOCR(BaseModel):
+    numero: int = 1
+    texto: str = ""
+    palabras: list[PalabraOCR] = Field(default_factory=list)
+    confianza_media: float = 0.0
+    ancho: int = 0
+    alto: int = 0
+    pasos_preprocesado: list[str] = Field(default_factory=list)
+    motor: Optional[str] = None  # motor que leyó la página (paddle/doctr/tesseract/pdf-nativo)
+
+
+# ---------------------------------------------------------------- Plantillas
+class ReglaCampo(BaseModel):
+    metodo: Metodo
+    regex: Optional[str] = None
+    ancla: Optional[str] = None
+    pagina: Optional[int] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    ancho: Optional[float] = None
+    alto: Optional[float] = None
+    # extras opcionales
+    flags: Optional[str] = None  # p. ej. "i" para ignorar mayúsculas
+    misma_linea: bool = True  # ancla: buscar en la misma línea; si no hay, la siguiente
+
+    @field_validator("regex")
+    @classmethod
+    def _regex_valido(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            import re
+
+            re.compile(v)
+        return v
+
+
+class PalabraClaveDTO(BaseModel):
+    texto: str = Field(min_length=1, max_length=200)
+    peso: int = Field(default=1, ge=1, le=5)
+
+
+class CampoPlantillaDTO(BaseModel):
+    id: Optional[int] = None
+    nombre: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_]+$")
+    etiqueta: str = Field(min_length=1, max_length=200)
+    tipo_dato: TipoDato = "texto"
+    obligatorio: bool = False
+    regla: ReglaCampo
+    orden: int = 0
+
+
+class PlantillaCrear(BaseModel):
+    codigo: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9_]+$")
+    nombre: str = Field(min_length=1, max_length=200)
+    descripcion: Optional[str] = Field(default=None, max_length=1000)
+    activa: bool = True
+    umbral_confianza: float = Field(default=0.6, ge=0, le=1)
+    palabras_clave: list[PalabraClaveDTO] = Field(default_factory=list)
+    campos: list[CampoPlantillaDTO] = Field(default_factory=list)
+    documento_ejemplo_id: Optional[str] = None
+    creado_por: Optional[str] = None
+
+
+class PlantillaDTO(PlantillaCrear):
+    id: int
+    version_id: Optional[int] = None
+    version: int = 1
+    creado_en: Optional[datetime] = None
+    actualizado_en: Optional[datetime] = None
+    ejemplos_texto: list[str] = Field(default_factory=list, exclude=True)
+    rol_minimo_edicion: str = "Editor"  # docs/07: rol mínimo para editar esta plantilla
+    total_documentos: Optional[int] = None  # documentos procesados con alguna versión (solo en el listado)
+
+
+class PlantillaEstado(BaseModel):
+    activa: bool
+
+
+# ---------------------------------------------------------------- Resultado
+class AlternativaClasificacion(BaseModel):
+    tipo: str
+    confianza: float
+    plantilla_id: Optional[int] = None
+
+
+class Clasificacion(BaseModel):
+    tipo: str = "desconocido"
+    plantilla_id: Optional[int] = None
+    version_id: Optional[int] = None
+    confianza: float = 0.0
+    alternativas: list[AlternativaClasificacion] = Field(default_factory=list)
+
+
+class CampoExtraidoDTO(BaseModel):
+    nombre: str
+    campo_plantilla_id: Optional[int] = None
+    valor: Any = None  # valor normalizado
+    valor_texto: Optional[str] = None
+    confianza: float = 0.0
+    pagina: Optional[int] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    ancho: Optional[float] = None
+    alto: Optional[float] = None
+    valido: bool = False
+    motor: Optional[str] = None  # motor OCR que dio la lectura final del campo
+
+
+class ResultadoDTO(BaseModel):
+    """Resultado interno del pipeline (antes de convertirlo al JSON del contrato)."""
+
+    paginas: list[PaginaOCR]
+    clasificacion: Clasificacion
+    campos: list[CampoExtraidoDTO]
+    palabras_clave: list[str]
+    texto_completo: str
+    confianza_global: float
+    advertencias: list[str]
+    tiempos_ms: dict[str, int]
+    motor_ocr: str
+
+    def a_contrato(self, documento_id: str, archivo: str, estado: str = "COMPLETADO") -> dict:
+        """JSON del contrato (docs/01 sección 5)."""
+        campos = {}
+        for c in self.campos:
+            item: dict[str, Any] = {"valor": c.valor, "confianza": round(c.confianza, 3), "pagina": c.pagina, "motor": c.motor}
+            campos[c.nombre] = item
+        return {
+            "documento_id": documento_id,
+            "archivo": archivo,
+            "paginas": len(self.paginas),
+            "estado": estado,
+            "clasificacion": {
+                "tipo": self.clasificacion.tipo,
+                "plantilla_id": self.clasificacion.plantilla_id,
+                "confianza": round(self.clasificacion.confianza, 3),
+                "alternativas": [
+                    {"tipo": a.tipo, "confianza": round(a.confianza, 3)} for a in self.clasificacion.alternativas
+                ],
+            },
+            "campos": campos,
+            "palabras_clave": self.palabras_clave,
+            "texto_completo": self.texto_completo,
+            "confianza_global": round(self.confianza_global, 3),
+            "advertencias": self.advertencias,
+            "tiempos_ms": self.tiempos_ms,
+        }
+
+
+class DocumentoDTO(BaseModel):
+    id: str
+    nombre_archivo: str
+    tipo_mime: str
+    tamano_bytes: int
+    hash_sha256: str
+    paginas: int
+    estado: str
+    plantilla_forzada_id: Optional[int] = None
+    mensaje_error: Optional[str] = None
+    recibido_en: Optional[datetime] = None
+    procesado_en: Optional[datetime] = None
+    tipo_detectado: Optional[str] = None
+    confianza_global: Optional[float] = None
+
+
+class SugerenciaPlantilla(BaseModel):
+    documento_id: str
+    palabras_clave: list[PalabraClaveDTO]
+    campos: list[CampoPlantillaDTO]
+    texto: str

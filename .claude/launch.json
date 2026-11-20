@@ -1,0 +1,50 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "maqueta",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--directory",
+        "diseno"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "frontend-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:mock",
+        "--prefix",
+        "frontend"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "frontend-real",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:real",
+        "--prefix",
+        "frontend"
+      ],
+      "port": 5181
+    }
+  ]
+}

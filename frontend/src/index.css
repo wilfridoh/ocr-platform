@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-bg font-sans text-[14px] leading-normal text-ink antialiased;
+  }
+  /* encabezado de tabla de la guía visual: 11.5px MAYÚSCULAS, tracking .04em, ink3, fondo #F8FAFC */
+  thead {
+    @apply bg-[#F8FAFC];
+  }
+  thead th {
+    @apply text-[11.5px] font-semibold uppercase tracking-[.04em] text-ink-3;
+  }
+  :focus-visible {
+    outline: 2px solid theme('colors.brand.DEFAULT');
+    outline-offset: 2px;
+  }
+}
+
+/* Utilidades reutilizadas por varios componentes (docs/09-guia-visual-frontend.md) */
+.tarjeta {
+  @apply rounded-card border border-line bg-surface shadow-card;
+}
+
+.boton {
+  @apply inline-flex items-center justify-center gap-[7px] rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[.45];
+}
+
+.boton-primario {
+  @apply boton border border-brand bg-brand text-white hover:bg-brand-h;
+}
+
+.boton-secundario {
+  @apply boton border border-line bg-white text-ink hover:bg-line-2;
+}
+
+.boton-peligro {
+  @apply boton border border-[#FCA5A5] bg-white text-err hover:bg-err-soft;
+}
+
+.campo-entrada {
+  @apply block w-full rounded-lg border border-[#CBD5E1] bg-white px-[11px] py-2 text-[13px] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-line;
+}
+
+.etiqueta-campo {
+  @apply mb-[5px] block text-xs font-semibold text-ink-2;
+}
+
+/* chips de estado */
+.chip {
+  @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-line-2 px-2.5 py-0.5 text-xs font-semibold text-ink-2;
+}
+.chip-ok {
+  @apply bg-ok-soft text-ok;
+}
+.chip-warn {
+  @apply bg-warn-soft text-warn;
+}
+.chip-err {
+  @apply bg-err-soft text-err;
+}
+.chip-marca {
+  @apply bg-brand-soft text-brand;
+}
+.chip-punto {
+  @apply h-1.5 w-1.5 rounded-full bg-current;
+}
+
+/* ---------------------------------------------------------------------------
+   Tokens de diseño (de diseno/maqueta.html, :root). Los componentes nuevos usan
+   estas variables; el resto de la app se migra gradualmente.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: #f5f6fa;
+  --surface: #fff;
+  --ink: #0f172a;
+  --ink2: #475569;
+  --ink3: #64748b;
+  --line: #e2e8f0;
+  --line2: #f1f5f9;
+  --brand: #4338ca;
+  --brand-h: #3730a3;
+  --brand-soft: #eef0ff;
+  --brand-line: #c7ccf8;
+  --ok: #047857;
+  --ok-soft: #e6f6ef;
+  --warn: #b45309;
+  --warn-soft: #fef3c7;
+  --err: #b91c1c;
+  --err-soft: #fee2e2;
+  --sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', Consolas, monospace;
+  --radio: 10px;
+  --sombra: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+@layer components {
+  /* tarjeta / ícono destacado / botones / campos de la maqueta */
+  .ui-tarjeta {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .ui-vacio-icono {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    display: grid;
+    place-items: center;
+    margin: 0 auto 16px;
+  }
+  .ui-vacio-icono svg {
+    width: 30px;
+    height: 30px;
+  }
+  .ui-etiqueta {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink2);
+    margin-bottom: 5px;
+  }
+  .ui-campo {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 11px;
+    background: #fff;
+    font-size: 13px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .ui-campo:focus {
+    outline: 2px solid var(--brand-line);
+    border-color: var(--brand);
+  }
+  .ui-campo:disabled {
+    background: #f8fafc;
+    color: var(--ink3);
+  }
+  .ui-ayuda {
+    font-size: 12px;
+    color: var(--ink3);
+    margin-top: 4px;
+  }
+  .ui-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink);
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ui-btn:hover {
+    background: var(--line2);
+  }
+  .ui-btn:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  .ui-btn[disabled] {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .ui-btn-pri {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+  }
+  .ui-btn-pri:hover {
+    background: var(--brand-h);
+  }
+  .ui-btn-fantasma {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink2);
+  }
+  /* estado de la conexión: verde / rojo / neutro */
+  .ui-estado {
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 12.5px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    border: 1px solid transparent;
+  }
+  .ui-estado svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ui-estado-ok {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #14532d;
+  }
+  .ui-estado-error {
+    background: var(--err-soft);
+    border-color: #fecaca;
+    color: var(--err);
+  }
+  .ui-estado-neutro {
+    background: var(--line2);
+    border-color: var(--line);
+    color: var(--ink2);
+  }
+}

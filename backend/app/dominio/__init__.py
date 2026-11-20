@@ -1,0 +1,18 @@
+from .modelos import (  # noqa: F401
+    AlternativaClasificacion,
+    CampoExtraidoDTO,
+    CampoPlantillaDTO,
+    Clasificacion,
+    DocumentoDTO,
+    PaginaOCR,
+    PalabraClaveDTO,
+    PalabraOCR,
+    PlantillaCrear,
+    PlantillaDTO,
+    PlantillaEstado,
+    ReglaCampo,
+    ResultadoDTO,
+    SugerenciaPlantilla,
+    TIPOS_DATO,
+    METODOS,
+)

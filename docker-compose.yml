@@ -1,0 +1,184 @@
+name: ocr-platform
+
+# ---------------------------------------------------------------------------
+# OCR Platform - orquestacion local
+#
+#   mssql     SQL Server 2022 (datos en volumen mssql-data)
+#   db-init   aplica db/aplicar.sh una sola vez cuando mssql esta sano
+#   backend   API FastAPI (puerto 8000)
+#   mcp       servidor MCP sobre HTTP (puerto 8001), misma imagen que backend
+#   frontend  Nginx con el build de React, proxy /api -> backend (host 3000)
+#
+# Variables: copiar .env.example a .env (scripts/levantar.ps1 lo hace solo).
+# ---------------------------------------------------------------------------
+
+services:
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ocr-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Define MSSQL_SA_PASSWORD en .env}
+      MSSQL_PID: ${MSSQL_PID:-Developer}
+      MSSQL_COLLATION: ${MSSQL_COLLATION:-Latin1_General_100_CI_AI_SC_UTF8}
+      TZ: ${TZ:-America/Guayaquil}
+    ports:
+      - "${MSSQL_PUERTO_HOST:-1433}:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" > /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - ocr-red
+
+  # Ejecuta los scripts de db/ una vez. Usa la misma imagen de SQL Server
+  # porque trae /opt/mssql-tools18/bin/sqlcmd (la que usa db/aplicar.sh).
+  # Se normalizan los finales de linea (CRLF -> LF) por si el repo se clono en Windows.
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ocr-db-init
+    depends_on:
+      mssql:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      DB_SERVIDOR: mssql
+      DB_USUARIO: sa
+      DB_PASSWORD: ${MSSQL_SA_PASSWORD}
+      DB_NOMBRE: ${DB_NOMBRE:-ocr}
+    volumes:
+      - ./db:/db:ro
+    working_dir: /db
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >-
+        set -e;
+        mkdir -p /tmp/db;
+        for f in /db/*.sql /db/*.sh; do [ -f "$$f" ] && tr -d '\r' < "$$f" > "/tmp/db/$$(basename "$$f")"; done;
+        chmod +x /tmp/db/aplicar.sh;
+        cd /tmp/db;
+        exec bash /tmp/db/aplicar.sh
+        # aplicar.sh lee DB_SERVIDOR/DB_USUARIO/DB_PASSWORD del entorno (ya definidas abajo);
+        # tambien acepta -S/-U/-P si se prefiere pasarlos explicitos.
+    restart: "no"
+    networks:
+      - ocr-red
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ocr-platform-backend:local
+    container_name: ocr-backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      mssql:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      # La contrasena va sin codificar: evita usar @ : / ? # en MSSQL_SA_PASSWORD
+      # o define DATABASE_URL completa en .env (tiene prioridad si existe).
+      DATABASE_URL: ${DATABASE_URL:-mssql+pyodbc://sa:${MSSQL_SA_PASSWORD}@mssql:1433/${DB_NOMBRE:-ocr}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes}
+      API_KEY: ${API_KEY}
+      OCR_MOTOR: ${OCR_MOTOR:-tesseract}
+      OCR_IDIOMA: ${OCR_IDIOMA:-spa}
+      OCR_DPI: ${OCR_DPI:-300}
+      ALMACEN_RUTA: /data/archivos
+      # Retención de documentos (datos personales): se eliminan pasados N días. 0 = sin caducidad automática.
+      DOC_RETENCION_DIAS: ${DOC_RETENCION_DIAS:-30}
+      # Purga automática diaria (hilo del propio backend). Apagada por defecto en el código; aquí se enciende.
+      DOC_PURGA_AUTOMATICA: ${DOC_PURGA_AUTOMATICA:-true}
+      MAX_TAMANO_MB: ${MAX_TAMANO_MB:-20}
+      UMBRAL_DESCONOCIDO: ${UMBRAL_DESCONOCIDO:-0.5}
+      OCR_PRECARGAR: "true"
+      # Acceso público a flujos de captura (sin API key): APAGADO por defecto (fase 4, pendiente de revisión de QA).
+      PUBLICO_HABILITADO: ${PUBLICO_HABILITADO:-false}
+      # Acceso público a flujos de captura (sin API key): la IP real llega en X-Forwarded-For puesta por nginx.
+      # Solo es seguro si el backend no se expone directamente a internet (en producción, no publiques el puerto 8000).
+      PUBLICO_CONFIAR_PROXY: ${PUBLICO_CONFIAR_PROXY:-true}
+      PUBLICO_LIMITE_IP_POR_MINUTO: ${PUBLICO_LIMITE_IP_POR_MINUTO:-10}
+      TZ: ${TZ:-America/Guayaquil}
+    ports:
+      - "${BACKEND_PUERTO_HOST:-8000}:8000"
+    volumes:
+      - archivos-data:/data/archivos
+      # Defensa extra: los modelos ya van horneados en la imagen; estos volúmenes los conservan
+      # si algún día se descargan de nuevo. OJO: un volumen ya poblado tapa los modelos de una
+      # imagen nueva; si cambias de modelo, borra el volumen (docker volume rm).
+      - paddleocr-modelos:/root/.paddleocr
+      - onnxtr-modelos:/root/.cache/onnxtr
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/salud', timeout=5).status == 200 else 1)"
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - ocr-red
+
+  # Servidor MCP por HTTP (streamable-http). Reutiliza la imagen del backend
+  # (no vuelve a construir) y habla con la API por la red interna.
+  mcp:
+    image: ocr-platform-backend:local
+    container_name: ocr-mcp
+    command: ["python", "-m", "mcp_server.server"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8001"
+      OCR_API_URL: http://backend:8000/api
+      OCR_API_KEY: ${API_KEY}
+      TZ: ${TZ:-America/Guayaquil}
+    ports:
+      - "${MCP_PUERTO_HOST:-8001}:8001"
+    volumes:
+      # Lectura de archivos del almacen para procesar_documento(ruta)
+      - archivos-data:/data/archivos:ro
+    restart: unless-stopped
+    networks:
+      - ocr-red
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ocr-platform-frontend:local
+    container_name: ocr-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PUERTO_HOST:-3000}:80"
+    restart: unless-stopped
+    networks:
+      - ocr-red
+
+volumes:
+  mssql-data:
+    name: ocr-mssql-data
+  archivos-data:
+    name: ocr-archivos-data
+  paddleocr-modelos:
+    name: ocr-paddleocr-modelos
+  onnxtr-modelos:
+    name: ocr-onnxtr-modelos
+
+networks:
+  ocr-red:
+    name: ocr-red
+    driver: bridge

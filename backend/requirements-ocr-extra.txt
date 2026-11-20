@@ -1,0 +1,8 @@
+# Motores deep-learning (PaddleOCR principal, docTR via OnnxTR segunda opinion).
+# Separados de requirements.txt: son pesados y opcionales para desarrollo local;
+# obligatorios en la imagen Docker (ver Dockerfile). Instalar con:
+#   pip install -r requirements.txt -r requirements-ocr-extra.txt
+setuptools
+paddlepaddle==3.0.0
+paddleocr==2.10.0
+onnxtr[cpu]==0.9.0

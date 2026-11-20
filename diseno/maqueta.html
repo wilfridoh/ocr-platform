@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plataforma OCR · Maqueta de pantallas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6FA; --surface:#fff; --ink:#0F172A; --ink2:#475569; --ink3:#64748B; --line:#E2E8F0; --line2:#F1F5F9;
+  --brand:#4338CA; --brand-h:#3730A3; --brand-soft:#EEF0FF; --brand-line:#C7CCF8;
+  --ok:#047857; --ok-soft:#E6F6EF; --warn:#B45309; --warn-soft:#FEF3C7; --err:#B91C1C; --err-soft:#FEE2E2;
+  --side:#0F172A; --side-ink:#94A3B8;
+  --sans:'Inter','Segoe UI',system-ui,sans-serif; --mono:'JetBrains Mono',Consolas,monospace;
+  --r:10px; --shadow:0 1px 2px rgba(15,23,42,.06),0 1px 3px rgba(15,23,42,.05);
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:14px/1.5 var(--sans);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* layout */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;padding:18px 12px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;color:#fff;font-weight:700;font-size:15px}
+.brand .lg{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#4338CA);display:grid;place-items:center}
+.brand small{display:block;font-weight:400;font-size:11px;color:var(--side-ink)}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--side-ink);text-decoration:none;font-weight:500;margin-bottom:2px}
+.nav a:hover{background:#1E293B;color:#fff}
+.nav a.on{background:#312E81;color:#fff}
+.nav .cnt{margin-left:auto;font-size:11px;background:#1E293B;border-radius:99px;padding:1px 8px;color:#CBD5E1}
+.side .sp{flex:1}
+.status{background:#111C33;border:1px solid #1E293B;border-radius:10px;padding:10px 12px;font-size:12px;color:#CBD5E1}
+.status b{display:flex;align-items:center;gap:8px;color:#fff;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.2)}
+.status a{display:flex;gap:6px;align-items:center;color:var(--side-ink);font-size:12px;text-decoration:none;margin-top:8px}
+.status a:hover{color:#fff}
+main{padding:28px 32px 90px;max-width:1280px;width:100%}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.ph h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.ph p{color:var(--ink3);margin-top:2px}
+.crumb{font-size:12px;color:var(--ink3);margin-bottom:6px}
+.crumb a{color:var(--ink3);text-decoration:none}.crumb a:hover{color:var(--brand)}
+/* componentes */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card>h3,.ch{font-size:13px;font-weight:600;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between}
+.cb{padding:16px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--line2)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}.btn.pri:hover{background:var(--brand-h)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.gh{border-color:transparent;background:transparent;color:var(--ink2)}.btn.gh:hover{background:var(--line2)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600;background:var(--line2);color:var(--ink2);white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.err{background:var(--err-soft);color:var(--err)}.chip.br{background:var(--brand-soft);color:var(--brand)}
+.chip .dot{width:6px;height:6px;box-shadow:none;background:currentColor}
+.kw{display:inline-flex;align-items:center;gap:6px;background:var(--brand-soft);color:var(--brand);border:1px solid var(--brand-line);border-radius:99px;padding:3px 6px 3px 12px;font-weight:500;font-size:13px}
+.kw.plain{padding:3px 12px}
+.kw .w{display:inline-flex;gap:2px;margin-left:4px}.kw .w i{width:6px;height:6px;border-radius:50%;background:var(--brand-line)}.kw .w i.f{background:var(--brand)}
+.kw button{border:0;background:transparent;color:var(--brand);display:grid;place-items:center;width:18px;height:18px;border-radius:50%}.kw button:hover{background:var(--brand-line)}
+label.l{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:5px}
+.in,select.in,textarea.in{width:100%;border:1px solid #CBD5E1;border-radius:8px;padding:8px 11px;background:#fff;font-size:13px}
+.in:focus{outline:2px solid var(--brand-line);border-color:var(--brand)}
+.in.mono,.mono{font-family:var(--mono);font-size:12.5px}
+.help{font-size:12px;color:var(--ink3);margin-top:4px}
+.sw{width:34px;height:20px;border-radius:99px;background:#CBD5E1;position:relative;border:0;padding:0;transition:.15s;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw.on{background:var(--ok)}.sw.on::after{left:16px}
+.seg{display:inline-flex;background:var(--line2);border-radius:8px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:6px;padding:5px 12px;font-weight:600;font-size:12px;color:var(--ink2)}
+.seg button.on{background:#fff;color:var(--brand);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);text-align:left;padding:10px 14px;background:#F8FAFC;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:11px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr.row:hover td{background:#F8FAFF;cursor:pointer}
+.tr{text-align:right}
+.conf{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-variant-numeric:tabular-nums;font-size:12.5px}
+.bar{width:54px;height:6px;border-radius:9px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--ok);border-radius:9px}
+.conf.warn .bar i{background:#D97706}.conf.warn{color:var(--warn)}.conf.err{color:var(--err)}.conf.ok{color:var(--ok)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tabs button{border:0;background:transparent;padding:9px 14px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--brand);border-color:var(--brand)}
+.alert{display:flex;gap:12px;align-items:flex-start;border-radius:var(--r);padding:14px 16px;border:1px solid}
+.alert.warn{background:var(--warn-soft);border-color:#FCD34D;color:#78350F}
+.alert.err{background:var(--err-soft);border-color:#FCA5A5;color:#7F1D1D}
+.alert.info{background:var(--brand-soft);border-color:var(--brand-line);color:#312E81}
+.alert b{display:block}.alert .btn{margin-left:auto}
+.grid2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px}
+.muted{color:var(--ink3)}
+/* dropzone */
+.drop{border:2px dashed #B6BEF0;background:linear-gradient(180deg,#FAFAFF,#F3F4FF);border-radius:14px;padding:34px 20px;text-align:center;transition:.15s}
+.drop:hover{border-color:var(--brand);background:var(--brand-soft)}
+.drop .ic{width:52px;height:52px;border-radius:14px;background:#fff;border:1px solid var(--brand-line);display:grid;place-items:center;margin:0 auto 12px;color:var(--brand)}
+.drop .ic svg{width:24px;height:24px}
+.drop strong{font-size:15px}
+/* progreso */
+.prog{height:6px;background:var(--line);border-radius:9px;overflow:hidden;position:relative}
+.prog::after{content:"";position:absolute;inset:0;width:35%;background:var(--brand);border-radius:9px;animation:ind 1.3s ease-in-out infinite}
+@keyframes ind{0%{left:-35%}100%{left:100%}}
+.file{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.file .fi{width:36px;height:36px;border-radius:8px;background:var(--err-soft);color:var(--err);display:grid;place-items:center;font-size:10px;font-weight:700}
+/* campos */
+.fld{display:grid;grid-template-columns:1fr auto;gap:2px 14px;padding:11px 16px;border-bottom:1px solid var(--line2);cursor:default;border-left:3px solid transparent}
+.fld:hover,.fld.hl{background:var(--brand-soft);border-left-color:var(--brand)}
+.fld .n{font-size:12px;color:var(--ink3)}
+.fld .v{font-weight:600;font-size:14px;word-break:break-word}
+.fld .c{grid-row:1/3;grid-column:2;align-self:center}
+.fld.warn{background:#FFFBEB}.fld.warn .v{color:var(--warn)}
+.fld.miss{background:#FEF2F2}.fld.miss .v{color:var(--err);font-weight:500;font-style:italic}
+.fld .tag{font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.fld.warn .tag{background:var(--warn-soft);color:var(--warn)}.fld.miss .tag{background:var(--err-soft);color:var(--err)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--ink3);padding:10px 16px;border-top:1px solid var(--line)}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:10px;height:10px;border-radius:3px}
+/* documento simulado */
+.pg{background:#E8EAF0;border-radius:0 0 var(--r) var(--r);padding:16px}
+.doc{container-type:inline-size;position:relative;background:#fff;aspect-ratio:100/135;box-shadow:0 4px 18px rgba(15,23,42,.18);font-family:Arial,sans-serif;color:#222;overflow:hidden}
+.doc .hd{position:absolute;left:0;right:0;top:0;height:11%;background:#1E3A8A;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 6%}
+.doc .hd b{font-size:5.4cqw;letter-spacing:.02em}.doc .hd span{font-size:2.5cqw;text-align:right;opacity:.9;line-height:1.3}
+.doc .d{position:absolute;padding:.8cqw 1.4cqw;border-radius:1cqw;border:.4cqw solid transparent;transition:.12s}
+.doc .d small{display:block;font-size:2.1cqw;color:#6B7280;letter-spacing:.04em;text-transform:uppercase}
+.doc .d span{display:block;font-size:3.1cqw;font-weight:700;line-height:1.25}
+.doc.on .d{border-color:rgba(67,56,202,.45);background:rgba(99,102,241,.08)}
+.doc.on .d.w{border-color:rgba(217,119,6,.7);background:rgba(245,158,11,.14)}
+.doc.on .d.m{border-color:#DC2626;border-style:dashed;background:rgba(220,38,38,.07)}
+.doc .d.act,.doc.on .d.act{border-color:var(--brand);background:rgba(99,102,241,.22);box-shadow:0 0 0 .8cqw rgba(99,102,241,.25)}
+.doc .d.w.act{border-color:#D97706;background:rgba(245,158,11,.3);box-shadow:0 0 0 .8cqw rgba(245,158,11,.25)}
+.doc .d.m.act{border-color:#DC2626;box-shadow:0 0 0 .8cqw rgba(220,38,38,.2)}
+.doc .blur span{filter:blur(.7cqw);opacity:.6}
+.doc .ln{position:absolute;left:6%;right:6%;height:1.4cqw;border-radius:1cqw;background:#E5E7EB}
+.doc .tbl{position:absolute;left:6%;right:6%;border:.3cqw solid #E5E7EB;border-radius:1cqw}
+.doc .tx{position:absolute;font-size:2.3cqw;color:#9CA3AF}
+.doc .zona{position:absolute;border:.5cqw dashed #4338CA;background:rgba(99,102,241,.12);border-radius:.8cqw}
+.doc .zona i{position:absolute;width:2cqw;height:2cqw;background:#fff;border:.4cqw solid #4338CA;border-radius:.4cqw}
+.pgbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--ink3)}
+.pgbar .zm{display:flex;gap:4px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);font-weight:500}
+/* json */
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;place-items:center;z-index:50;padding:24px}
+.modal.on{display:grid}
+.modal .box{background:#fff;border-radius:14px;width:min(720px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .box>div:first-child{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700}
+pre.json{background:#0F172A;color:#E2E8F0;font:12.5px/1.65 var(--mono);padding:18px;overflow:auto;flex:1}
+.jk{color:#93C5FD}.js{color:#86EFAC}.jn{color:#FCD34D}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#0F172A;color:#fff;border-radius:10px;padding:10px 16px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:80;display:flex;gap:8px;align-items:center}
+.toast.on{opacity:1;transform:translateX(-50%)}
+/* asistente */
+.steps{display:flex;gap:0;margin-bottom:22px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.step{display:flex;align-items:center;gap:10px;flex:1;color:var(--ink3);font-weight:600}
+.step .nb{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;background:#fff;flex:none}
+.step small{display:block;font-weight:400;font-size:12px}
+.step.on{color:var(--ink)}.step.on .nb{background:var(--brand);border-color:var(--brand);color:#fff}
+.step.done .nb{background:var(--ok);border-color:var(--ok);color:#fff}.step.done{color:var(--ink2)}
+.step+.step::before{content:"";flex:0 0 40px;height:2px;background:var(--line);margin-right:10px;margin-left:-6px}
+.step.done+.step::before,.step.on::before{background:var(--brand)}
+.foot{position:sticky;bottom:0;margin:22px -32px -90px;padding:14px 32px;background:rgba(245,246,250,.92);backdrop-filter:blur(6px);border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;z-index:5}
+.ocrtxt{font:12.5px/1.7 var(--mono);color:var(--ink2);white-space:pre-wrap;padding:14px 16px;max-height:470px;overflow:auto}
+.ocrtxt mark{background:#FEF08A;border-radius:3px;padding:0 2px}
+.rule{background:#F8FAFC;border:1px solid var(--line);border-radius:10px;padding:14px}
+.suggest{border-left:3px solid var(--brand)}
+.live{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:8px 11px;font-size:12.5px;display:flex;gap:8px;align-items:center;margin-top:8px;color:#14532D}
+.live code{font-family:var(--mono);font-weight:600}
+.tl{display:grid;grid-template-columns:110px 1fr 64px;gap:10px;align-items:center;padding:6px 0;font-size:13px}
+.tl .b{height:10px;border-radius:9px;background:var(--line2);overflow:hidden}.tl .b i{display:block;height:100%;background:var(--brand);border-radius:9px}
+.empty{text-align:center;padding:56px 20px}
+.empty .ic{width:64px;height:64px;border-radius:18px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;margin:0 auto 16px}
+.empty .ic svg{width:30px;height:30px}
+.empty h2{font-size:18px;margin-bottom:6px}.empty p{color:var(--ink3);max-width:420px;margin:0 auto 18px}
+/* demo */
+.demo{position:fixed;right:16px;top:12px;background:#111827;color:#E5E7EB;border-radius:12px;padding:8px 10px;display:flex;gap:6px;align-items:center;font-size:12px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.demo b{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#9CA3AF;margin:0 4px}
+.demo button{border:0;background:#1F2937;color:#E5E7EB;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:500}
+.demo button.on{background:#6366F1;color:#fff}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink3)}
+.pager div{display:flex;gap:4px}.pager button{min-width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:7px;font-weight:600;font-size:13px}.pager button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.filters{display:flex;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.filters .in{width:auto;min-width:150px}
+.sr{position:relative}.sr svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3)}.sr .in{padding-left:32px;min-width:230px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi{padding:14px 16px}.kpi small{color:var(--ink3);font-weight:500}.kpi b{display:block;font-size:24px;letter-spacing:-.02em;margin-top:2px}.kpi span{font-size:12px}
+.ver{display:flex;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line2);align-items:flex-start}
+.ver .vb{background:var(--line2);border-radius:6px;font-weight:700;font-size:12px;padding:2px 8px}
+.ver.cur .vb{background:var(--brand);color:#fff}
+.sr.big{display:block}.sr.big .in{padding:12px 40px 12px 42px;font-size:15px;border-radius:10px;width:100%}.sr.big svg{left:14px}
+.sr .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:var(--line2);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;color:var(--ink2)}
+.frow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}.fl{width:56px;font-size:12px;font-weight:600;color:var(--ink3)}
+.pill{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 13px;font-size:13px;font-weight:500;color:var(--ink2);display:inline-flex;align-items:center;gap:5px}
+.pill:hover{border-color:var(--brand-line);background:var(--brand-soft)}.pill.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.pill.ghost{border-style:dashed;color:var(--ink3)}
+.dr{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink3)}.dr .in{width:auto}
+.card{overflow-x:auto}.card td,.card th{padding-left:12px;padding-right:12px}
+.ro .btn.pri,.ro .btn[disabled]{opacity:.5}.ro input:disabled,.ro select:disabled{background:#F8FAFC}
+.rolbox{background:#111C33;border:1px solid #1E293B;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:#94A3B8}
+.rolbox span{display:block;text-transform:uppercase;letter-spacing:.06em;font-size:10px;margin-bottom:4px}
+.rolbox select{width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:7px;padding:5px 8px;font-size:12.5px}
+.nav .sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#64748B;padding:14px 10px 6px}
+.ck{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line2);cursor:pointer}
+.ck:last-of-type{border:0}.ck input{width:17px;height:17px;accent-color:var(--brand)}.ck small{display:block;color:var(--ink3);font-size:11.5px}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid var(--line2)}.opt:last-child{border:0}
+body.solo .side{display:none}body.solo .app{grid-template-columns:minmax(0,1fr)}body.solo main{max-width:none;padding:28px 16px 90px;background:linear-gradient(180deg,#EEF0FF,#F5F6FA 260px);min-height:100vh}
+.capwrap{max-width:460px;margin:0 auto}.caphead{display:flex;align-items:center;gap:10px;justify-content:center;margin:6px 0 22px;font-weight:700;font-size:15px}
+.capcard{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 28px rgba(15,23,42,.08);padding:26px 24px;text-align:center}
+.capcard h2{font-size:21px;letter-spacing:-.01em;margin-bottom:18px;line-height:1.3}
+.capbtns{display:grid;gap:12px}
+.capbtn{display:grid;grid-template-columns:48px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:14px;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:14px 16px;transition:.15s}
+.capbtn:hover:not([disabled]){border-color:var(--brand);background:var(--brand-soft)}
+.capbtn .ci{grid-row:1/3;width:48px;height:48px;border-radius:12px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center}
+.capbtn b{font-size:15px;align-self:end}.capbtn small{color:var(--ink3);font-size:12.5px;align-self:start}
+.capbtn[disabled]{cursor:default}
+.capdrop{display:flex;gap:8px;align-items:center;justify-content:center;border:2px dashed #C7CCF8;border-radius:12px;padding:16px;margin-top:14px;color:var(--ink3);font-size:13px;cursor:pointer}
+.capdrop.over,.capdrop:hover{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.capfmt{margin-top:16px;font-size:12.5px;color:var(--ink3)}.caphelp{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:16px;font-size:12px;color:var(--ink3)}
+.capfile{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:8px;text-align:left}
+.capth{width:52px;height:52px;border-radius:8px;overflow:hidden;background:var(--line2);flex:none;position:relative}
+.capsteps{display:grid;gap:9px;text-align:left}.cs{display:flex;align-items:center;gap:10px;color:var(--ink3);font-size:14px}.cs span{width:22px;height:22px;border-radius:50%;background:var(--line2);display:grid;place-items:center;font-size:11px;font-weight:700}
+.cs.d{color:var(--ink2)}.cs.d span{background:var(--ok-soft);color:var(--ok)}.cs.a{color:var(--ink);font-weight:600}.cs.a span{background:var(--brand);color:#fff}
+.capf{margin-bottom:11px}.capf label{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:4px}
+.capf.rev .in{border-color:#F59E0B;background:#FFFBEB}.capf .tag{font-size:10.5px;background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:1px 6px;margin-left:6px}
+.captips{background:#F8FAFC;border:1px solid var(--line);border-radius:10px;padding:12px 16px;text-align:left;font-size:13px;color:var(--ink2)}.captips ul{margin:6px 0 0 18px}
+.cedm{width:100%;height:100%;background:linear-gradient(135deg,#BFD7F5,#E3EEFB);display:flex;gap:4px;padding:5px}.cedm .cph{width:30%;background:#8AA9CF;border-radius:3px}.cedm .cl{flex:1;display:grid;gap:3px;align-content:start}.cedm .cl b{font-size:4px;color:#1E3A8A}.cedm .cl i{height:3px;background:#8AA9CF;border-radius:2px}
+.vf{background:radial-gradient(ellipse at center,#3B4559,#111827);aspect-ratio:4/3;position:relative;display:grid;place-items:center}
+.vfr{width:78%;aspect-ratio:1.586;border:2px dashed rgba(255,255,255,.8);border-radius:12px;position:relative}.vfr span{position:absolute;width:20px;height:20px;border:3px solid #fff}
+.vfr span:nth-child(1){left:-3px;top:-3px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}.vfr span:nth-child(2){right:-3px;top:-3px;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.vfr span:nth-child(3){left:-3px;bottom:-3px;border-right:0;border-top:0;border-radius:0 0 0 12px}.vfr span:nth-child(4){right:-3px;bottom:-3px;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.vfh{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:13px;color:#E5E7EB}
+.shutter{width:62px;height:62px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #0B1020}.shutter:hover{background:#E5E7EB}
+.demo .sep{width:1px;height:16px;background:#374151;margin:0 4px}
+@media (max-width:1100px){.grid2{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="lg" id="lg"></div><div>Lector OCR<small>Documentos inteligentes</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sp"></div>
+    <div class="rolbox"><span>Ver como (demo)</span><select id="rol"><option>Administrador</option><option>Editor</option><option>Operador</option></select></div>
+    <div class="status"><b><span class="dot"></span>Sistema operativo</b>API · OCR · Base de datos<br><span style="color:#64748B">Motor: PaddleOCR 2.7</span>
+      <a href="#/acceso" id="lnkAcc"></a></div>
+  </aside>
+  <main id="view"></main>
+</div>
+<div class="modal" id="modal"><div class="box"><div><span>Resultado JSON</span><span style="display:flex;gap:8px"><button class="btn sm" onclick="copiarJSON()" id="cpj"></button><button class="btn sm gh" onclick="cerrar()" id="xj"></button></span></div><pre class="json" id="jsonout"></pre></div></div>
+<div class="modal" id="modal2"></div>
+<div class="toast" id="toast"></div>
+<div class="demo" id="demo"></div>
+
+<script>
+/* ---------- iconos ---------- */
+const P={
+upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+file:'<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/>',
+layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+plus:'<path d="M5 12h14M12 5v14"/>',pencil:'<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+power:'<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>',search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+check:'<path d="M20 6 9 17l-5-5"/>',alert:'<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"/><path d="M12 9v4M12 17h.01"/>',
+x:'<path d="M18 6 6 18M6 6l12 12"/>',key:'<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
+code:'<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',spark:'<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',
+right:'<path d="m9 18 6-6-6-6"/>',left:'<path d="m15 18-6-6 6-6"/>',arrow:'<path d="M5 12h14M12 5l7 7-7 7"/>',
+clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
+info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',trash:'<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
+zoomin:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/>',zoomout:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3M8 11h6"/>',
+cursor:'<path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51z"/>',target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'};
+const ic=(n,s)=>`<svg class="i" viewBox="0 0 24 24"${s?` style="width:${s}px;height:${s}px"`:''}>${P[n]}</svg>`;
+document.getElementById('lg').innerHTML=ic('scan',18).replace('class="i"','class="i" style="color:#fff"');
+document.getElementById('lnkAcc').innerHTML=ic('key',14)+'Configurar acceso';
+document.getElementById('cpj').innerHTML=ic('copy',14)+'Copiar';
+document.getElementById('xj').innerHTML=ic('x',14);
+
+/* ---------- datos ---------- */
+const CAMPOS=[
+ {k:'numero_cliente',l:'Número de cliente',v:'1234567-8',c:95,t:'numero',pos:'left:6%;top:15%;width:38%;height:8%',lab:'N° cliente',met:'ancla',reg:'Ancla: "N° Cliente"'},
+ {k:'direccion',l:'Dirección',v:'Av. Siempre Viva 742, Providencia',c:82,t:'texto',pos:'left:48%;top:15%;width:46%;height:10.5%',lab:'Dirección de suministro',met:'zona',reg:'Zona: p.1 · x .48 y .15 · 46×10 %'},
+ {k:'consumo_kwh',l:'Consumo del período',v:'312 kWh',c:64,t:'numero',pos:'left:6%;top:41%;width:40%;height:8%',lab:'Consumo del período',met:'regex',reg:'(\\d+[.,]?\\d*)\\s*kWh'},
+ {k:'total_pagar',l:'Total a pagar',v:'$ 45.320',c:93,t:'monto',pos:'left:6%;top:76%;width:42%;height:11%',lab:'Total a pagar',met:'regex',reg:'Total a pagar\\s*\\$?\\s*([\\d.]+)'},
+ {k:'fecha_vencimiento',l:'Fecha de vencimiento',v:'30-11-2026',c:90,t:'fecha',pos:'left:54%;top:76%;width:40%;height:11%',lab:'Vencimiento',met:'ancla',reg:'Ancla: "Vencimiento"'},
+ {k:'rut_titular',l:'RUT del titular',v:null,c:0,t:'rut',req:true,pos:'left:6%;top:28%;width:40%;height:7.5%',lab:'RUT titular',blur:'12.345.678-5',met:'regex',reg:'\\d{1,2}\\.\\d{3}\\.\\d{3}-[\\dkK]'}
+];
+const DOCS=[
+ ['planilla_luz_noviembre.pdf','Planilla servicio eléctrico',91,'COMPLETADO','hoy 14:32','1'],
+ ['contrato_cuenta_8841.pdf','Cuenta de contrato',88,'COMPLETADO','hoy 13:58','2'],
+ ['cedula_frente_ramirez.jpg','Cédula de identidad',94,'COMPLETADO','hoy 12:10','3'],
+ ['escaneo_0042.png','Desconocido',31,'COMPLETADO','hoy 11:47','4'],
+ ['planilla_luz_octubre.pdf','Planilla servicio eléctrico',89,'COMPLETADO','ayer 18:20','5'],
+ ['factura_agua_2204.pdf','—',0,'ERROR','ayer 17:03','6'],
+ ['cuenta_contrato_0119.pdf','Cuenta de contrato',83,'COMPLETADO','ayer 15:41','7'],
+ ['planilla_luz_septiembre.jpg','Planilla servicio eléctrico',72,'COMPLETADO','10-11-2026','8'],
+ ['cedula_reverso_ramirez.jpg','Cédula de identidad',90,'COMPLETADO','10-11-2026','9'],
+ ['lote_scan_003.pdf','—',0,'PROCESANDO','10-11-2026','10']
+];
+const PLANT=[
+ ['planilla_servicio_electrico','Planilla servicio eléctrico',6,142,true,'v3','hace 2 días'],
+ ['cuenta_contrato','Cuenta de contrato',5,87,true,'v2','hace 1 semana'],
+ ['cedula_identidad','Cédula de identidad',7,23,false,'v1','hace 3 semanas']
+];
+const TXT=`BOLETA DE SERVICIO ELÉCTRICO
+EnerSur S.A.
+
+N° Cliente: 1234567-8          Dirección de suministro:
+                               Av. Siempre Viva 742
+                               Providencia, Santiago
+RUT titular: ░░░.░░░.░░░-░
+
+Período de facturación: 01-10-2026 al 31-10-2026
+Consumo del período: 312 kWh
+
+Detalle                         Monto
+Cargo fijo mensual              $ 1.250
+Energía base                    $ 38.870
+Impuestos                       $ 5.200
+
+Total a pagar: $ 45.320         Vencimiento: 30-11-2026`;
+
+/* ---------- utilidades ---------- */
+const $=s=>document.querySelector(s);
+const cc=c=>c>=85?'ok':c>=70?'ok':c>0?'warn':'err';
+const conf=c=>`<span class="conf ${c<70&&c>0?'warn':c===0?'err':'ok'}"><span class="bar"><i style="width:${c}%"></i></span>${c} %</span>`;
+function toast(m){const t=$('#toast');t.innerHTML=ic('check',16)+m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1800)}
+function cerrar(){$('#modal').classList.remove('on')}
+function copiarJSON(){try{navigator.clipboard.writeText($('#jsonout').textContent)}catch(e){}toast('JSON copiado')}
+function verJSON(){
+  const c={};CAMPOS.forEach(f=>c[f.k]=f.v?{valor:f.k==='total_pagar'?45320:f.k==='fecha_vencimiento'?'2026-11-30':f.v,confianza:f.c/100,pagina:1}:{valor:null,confianza:0,pagina:null});
+  const o={documento_id:'9f3c2a1e-7b4d-4c1a-9e55-0a1f6c2d8b31',archivo:'planilla_luz_noviembre.pdf',paginas:1,estado:'COMPLETADO',clasificacion:{tipo:'planilla_servicio_electrico',plantilla_id:3,confianza:0.91,alternativas:[{tipo:'cuenta_contrato',confianza:0.34}]},campos:c,palabras_clave:['dirección','consumo','total a pagar'],advertencias:['Campo obligatorio "rut_titular" no encontrado','Confianza baja en "consumo_kwh"'],confianza_global:0.87};
+  let s=JSON.stringify(o,null,2).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  s=s.replace(/("[^"]+")(:)/g,'<span class="jk">$1</span>$2').replace(/: ("[^"]*")/g,': <span class="js">$1</span>').replace(/: (-?\d[\d.]*|null|true|false)/g,': <span class="jn">$1</span>');
+  $('#jsonout').innerHTML=s;$('#modal').classList.add('on');
+}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')cerrar()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrar()});
+
+/* documento simulado */
+function docHTML(opts={}){
+  const f=k=>CAMPOS.find(x=>x.k===k);
+  const d=(x,cls='')=>{const w=x.c>0&&x.c<70?' w':'',m=!x.v?' m':'';
+    return `<div class="d${w}${m}${x.blur?' blur':''}" data-f="${x.k}" style="${x.pos}"><small>${x.lab}</small><span>${x.v||x.blur||''}</span></div>`};
+  const sel=opts.zona?`<div class="zona" style="left:47%;top:14%;width:48%;height:12.5%"><i style="left:-1.4cqw;top:-1.4cqw"></i><i style="right:-1.4cqw;top:-1.4cqw"></i><i style="left:-1.4cqw;bottom:-1.4cqw"></i><i style="right:-1.4cqw;bottom:-1.4cqw"></i></div>`:'';
+  return `<div class="doc ${opts.boxes===false?'':'on'}" id="${opts.id||'doc'}">
+   <div class="hd"><b>EnerSur</b><span>BOLETA DE SERVICIO<br>ELÉCTRICO · Nov 2026</span></div>
+   ${CAMPOS.map(d).join('')}
+   <div class="tx" style="left:6%;top:37%">Período: 01-10-2026 al 31-10-2026</div>
+   <div class="tbl" style="top:52%;height:20%"></div>
+   <div class="tx" style="left:8%;top:53.5%;color:#6B7280;font-weight:700">DETALLE DEL COBRO</div>
+   <div class="ln" style="top:59%"></div><div class="ln" style="top:63.5%;right:30%"></div><div class="ln" style="top:68%;right:18%"></div>
+   <div class="tx" style="left:6%;top:91%;right:6%;line-height:1.5">Pague en línea o en sucursales autorizadas. Atención: 600 123 4567</div>
+   ${sel}</div>`;
+}
+function ligar(root){
+  root.querySelectorAll('.fld[data-f]').forEach(r=>{
+    const k=r.dataset.f,on=()=>root.querySelector(`.d[data-f="${k}"]`)?.classList.add('act'),off=()=>root.querySelectorAll('.d.act').forEach(e=>e.classList.remove('act'));
+    r.addEventListener('mouseenter',on);r.addEventListener('mouseleave',off);
+  });
+  root.querySelectorAll('.d[data-f]').forEach(b=>{
+    const k=b.dataset.f;b.addEventListener('mouseenter',()=>root.querySelector(`.fld[data-f="${k}"]`)?.classList.add('hl'));
+    b.addEventListener('mouseleave',()=>root.querySelectorAll('.fld.hl').forEach(e=>e.classList.remove('hl')));
+  });
+}
+function camposHTML(){
+  return CAMPOS.map(f=>{
+    const cls=!f.v?'miss':f.c<70?'warn':'';
+    const tag=!f.v?'<span class="tag">OBLIGATORIO · NO ENCONTRADO</span>':f.c<70?'<span class="tag">REVISAR</span>':'';
+    return `<div class="fld ${cls}" data-f="${f.k}"><div class="n">${f.l}${tag}</div><div class="v">${f.v||'Sin valor'}</div><div class="c">${f.v?conf(f.c):''}</div></div>`}).join('');
+}
+function resultadoHTML(det){
+  return `
+  <div class="card" style="margin-bottom:14px"><div class="cb" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+    <div><div class="muted" style="font-size:12px">Tipo detectado</div><div style="font-weight:700;font-size:16px;margin-top:2px">Planilla servicio eléctrico</div><div class="mono muted" style="margin-top:1px">planilla_servicio_electrico</div></div>
+    <div><div class="muted" style="font-size:12px">Confianza de clasificación</div><div style="margin-top:4px">${conf(91)}</div></div>
+    <div><div class="muted" style="font-size:12px">Confianza global</div><div style="margin-top:4px">${conf(87)}</div></div>
+    <div><div class="muted" style="font-size:12px">Estado</div><div style="margin-top:3px"><span class="chip ok"><span class="dot"></span>Completado</span></div></div>
+    <div style="margin-left:auto;text-align:right"><div class="muted" style="font-size:12px">Alternativas</div><div style="margin-top:3px"><span class="chip">Cuenta de contrato · 34 %</span></div></div>
+  </div></div>
+  <div class="grid2" id="res">
+    <div class="card"><div class="pgbar"><span><b style="color:var(--ink)">Vista previa</b> · Página 1 de 1</span><span class="toggle"><span class="sw on" id="swb" role="switch"></span>Mostrar zonas</span></div>
+      <div class="pg">${docHTML()}</div></div>
+    <div class="card"><div class="ch"><span>Campos extraídos <span class="chip br" style="margin-left:6px">6 campos</span></span><span class="muted" style="font-weight:400;font-size:12px">Pasa el ratón para ubicarlo en el documento</span></div>
+      ${camposHTML()}
+      <div class="legend"><span><i style="background:#6366F1"></i>Correcto</span><span><i style="background:#D97706"></i>Confianza &lt; 70 %</span><span><i style="background:#DC2626"></i>Obligatorio faltante</span></div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="cb" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <span class="muted" style="font-weight:600">Palabras clave</span><span class="kw plain">dirección</span><span class="kw plain">consumo</span><span class="kw plain">total a pagar</span>
+    <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="verJSON()">${ic('code')}Ver JSON</button><button class="btn" onclick="copiarJSON2()">${ic('copy')}Copiar JSON</button><button class="btn" onclick="toast('Descargando resultado.json')">${ic('download')}Descargar</button><button class="btn" onclick="toast('Reprocesando…')">${ic('refresh')}Reprocesar</button></span></div></div>
+  <div class="alert warn" style="margin-top:14px">${ic('alert',18)}<div><b>2 advertencias</b>El campo obligatorio “RUT del titular” no se encontró y “Consumo del período” tiene confianza baja (64 %).</div></div>`;
+}
+function copiarJSON2(){verJSON();cerrar();copiarJSON()}
+function wireResult(root){
+  ligar(root);const sw=root.querySelector('#swb');
+  if(sw)sw.onclick=()=>{sw.classList.toggle('on');root.querySelector('.doc').classList.toggle('on',sw.classList.contains('on'))};
+}
+
+/* ---------- vistas ---------- */
+let PF='',PQ='';let estadoProc='completado', estadoPlant='datos';
+const V={};
+
+V.procesar=()=>{
+  const dz=`<div class="drop"><div class="ic">${ic('upload')}</div><strong>Arrastra aquí tu PDF o imagen</strong><div class="muted" style="margin:4px 0 14px">o haz clic para elegir un archivo · JPG, PNG o PDF · hasta 20 MB</div><button class="btn pri">${ic('file')}Elegir archivo</button></div>`;
+  const filebox=n=>`<div class="file"><div class="fi">PDF</div><div style="flex:1"><b>${n}</b><div class="muted" style="font-size:12px">1,2 MB · 1 página</div></div><button class="btn gh sm">${ic('x',14)}</button></div>`;
+  let ctl='',res='';
+  if(estadoProc==='vacio'){
+    ctl=`<div style="display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start">${dz}<div><label class="l">Tipo de documento</label><select class="in"><option>Detectar automáticamente</option><option>Planilla servicio eléctrico</option><option>Cuenta de contrato</option><option>Cédula de identidad</option></select><div class="help">Deja “automático” y el sistema elige la plantilla.</div><button class="btn pri" style="width:100%;justify-content:center;margin-top:14px" disabled>Procesar documento</button></div></div>`;
+    res=`<div class="card" style="margin-top:18px"><div class="empty"><div class="ic">${ic('scan')}</div><h2>Aún no hay resultado</h2><p>Sube un documento para ver el tipo detectado, los campos leídos y el JSON de salida.</p></div></div>`;
+  } else {
+    const ds=estadoProc==='desconocido'?'escaneo_0042.png':estadoProc==='error'?'factura_agua_2204.pdf':'planilla_luz_noviembre.pdf';
+    ctl=`<div style="display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start"><div>${filebox(ds)}</div><div><label class="l">Tipo de documento</label><select class="in"><option>Detectar automáticamente</option></select><button class="btn pri" style="width:100%;justify-content:center;margin-top:14px" ${estadoProc==='procesando'?'disabled':''}>${ic('spark')}Procesar documento</button></div></div>`;
+    if(estadoProc==='procesando') res=`<div class="card" style="margin-top:18px"><div class="cb" style="padding:34px 40px"><div style="display:flex;justify-content:space-between;margin-bottom:10px"><b>Leyendo documento…</b><span class="muted">planilla_luz_noviembre.pdf</span></div><div class="prog"></div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:22px;font-size:12px;text-align:center">${['Ingesta','Preprocesado','OCR','Clasificación','Extracción','Validación'].map((s,i)=>`<div style="color:${i<2?'var(--ok)':i===2?'var(--brand)':'var(--ink3)'};font-weight:${i===2?700:500}"><div style="width:26px;height:26px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;background:${i<2?'var(--ok-soft)':i===2?'var(--brand-soft)':'var(--line2)'}">${i<2?ic('check',14):i+1}</div>${s}</div>`).join('')}</div></div></div>`;
+    else if(estadoProc==='error') res=`<div class="alert err" style="margin-top:18px">${ic('alert',20)}<div><b>No pudimos procesar el documento</b>El servidor tardó demasiado en responder (error 504). Tu archivo no se perdió; puedes intentarlo otra vez.<div class="mono" style="margin-top:6px;opacity:.8">POST /api/documentos · 504 Gateway Timeout</div></div><button class="btn" style="background:#fff">${ic('refresh')}Reintentar</button></div>`;
+    else if(estadoProc==='desconocido') res=`<div class="alert warn" style="margin-top:18px">${ic('alert',20)}<div><b>No reconocimos este tipo de documento</b>La mejor coincidencia fue “Cuenta de contrato” con solo 31 % de confianza. Puedes enseñarle al sistema a leerlo creando una plantilla.</div><a class="btn pri" href="#/plantillas/nueva/1">${ic('plus')}Crear plantilla desde este documento</a></div>
+      <div class="grid2" style="margin-top:14px"><div class="card"><div class="pgbar"><b style="color:var(--ink)">Vista previa</b><span>Página 1 de 1</span></div><div class="pg">${docHTML({boxes:false})}</div></div>
+      <div class="card"><div class="ch">Texto leído (OCR)</div><div class="ocrtxt">${TXT}</div></div></div>`;
+    else res=`<div style="margin-top:22px">${resultadoHTML()}</div>`;
+  }
+  return `<div class="ph"><div><h1>Procesar documento</h1><p>Sube un PDF o imagen y obtén los datos en formato JSON.</p></div></div>
+  <div class="alert info" style="margin-bottom:14px;align-items:center">${ic('link',18)}<div><b>Modo dirigido</b>Un administrador puede preparar pantallas que piden un solo documento.</div><span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">${FLUJOS.filter(f=>f.activo).map(f=>`<a class="btn sm" href="#/captura/${f.codigo}" style="background:#fff">${f.nombre}</a>`).join('')}</span></div>
+  <div class="card"><div class="cb">${ctl}</div></div>${res}`;
+};
+V.procesar.after=r=>wireResult(r);
+
+const DTXT={1:'N° Cliente 1234567-8 · Av. Siempre Viva 742, Providencia · Total a pagar $ 45.320',2:'Contrato N° 8841 · Titular Marta Soto · Av. Libertador 1020 · Vigencia 12 meses',3:'República de Chile · Cédula de identidad · Ramírez Pérez, Juan · RUN 12.345.678-5',4:'Texto ilegible · hoja manuscrita sin encabezado reconocible',5:'N° Cliente 1234567-8 · Av. Siempre Viva 742, Providencia · Total a pagar $ 41.980',6:'',7:'Contrato N° 0119 · Titular Pedro Rojas · Calle Los Olmos 55 · Vigencia 24 meses',8:'N° Cliente 7654321-0 · Los Alerces 1180, Ñuñoa · Total a pagar $ 39.400',9:'Cédula de identidad · reverso · Ramírez Pérez, Juan · Domicilio Av. Siempre Viva 742',10:''};
+const DISO={1:'2026-11-12',2:'2026-11-12',3:'2026-11-12',4:'2026-11-12',5:'2026-11-11',6:'2026-11-11',7:'2026-11-11',8:'2026-11-10',9:'2026-11-10',10:'2026-11-10'};
+const DF={q:'',tipo:'',est:'',desde:'',hasta:''};
+const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function docsFiltrados(){
+  const q=norm(DF.q.trim());
+  return DOCS.filter(d=>{
+    if(DF.tipo&&d[1]!==DF.tipo)return false;
+    if(DF.est&&d[3]!==DF.est)return false;
+    if(DF.desde&&DISO[d[5]]<DF.desde)return false;
+    if(DF.hasta&&DISO[d[5]]>DF.hasta)return false;
+    if(q&&!norm(d[0]+' '+d[1]+' '+DTXT[d[5]]).includes(q))return false;
+    return true;
+  });
+}
+function snippet(d){
+  const q=DF.q.trim();if(!q)return '';
+  const t=DTXT[d[5]]||'';const i=norm(t).indexOf(norm(q));if(i<0)return '';
+  const a=Math.max(0,i-22),e=Math.min(t.length,i+q.length+22);
+  return `<div class="muted" style="font-size:12px;margin-top:2px">${a>0?'…':''}${t.slice(a,i)}<mark style="background:#FEF08A;border-radius:3px;padding:0 2px">${t.slice(i,i+q.length)}</mark>${t.slice(i+q.length,e)}${e<t.length?'…':''}</div>`;
+}
+function nFiltros(){return [DF.q.trim(),DF.tipo,DF.est,DF.desde||DF.hasta].filter(Boolean).length}
+function docsTabla(){
+  const L=docsFiltrados(),n=nFiltros();
+  const info=n?`<div class="pager" style="border-top:0;border-bottom:1px solid var(--line);padding:10px 16px"><span><b style="color:var(--ink)">${L.length} resultado${L.length===1?'':'s'}</b> · <span class="chip br">${n} filtro${n>1?'s':''} activo${n>1?'s':''}</span></span><button class="btn gh sm" id="limpiar">${ic('x',13)}Limpiar filtros</button></div>`:'';
+  if(!L.length)return info+`<div class="empty"><div class="ic">${ic('search')}</div><h2>No encontramos documentos</h2><p>Ningún documento coincide con la búsqueda y los filtros elegidos. Prueba con otra palabra o quita algún filtro.</p><button class="btn pri" id="limpiar2">Limpiar filtros</button></div>`;
+  return info+`<table><thead><tr><th>Fecha</th><th>Archivo</th><th>Tipo</th><th>Confianza</th><th>Estado</th><th class="tr">Acciones</th></tr></thead><tbody>
+  ${L.map(d=>`<tr class="row" onclick="location.hash='#/documentos/${d[5]}'"><td class="muted" style="white-space:nowrap">${d[4]}</td><td><div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--ink3);margin-top:2px">${ic('file')}</span><div><b style="font-weight:600">${d[0]}</b>${snippet(d)}</div></div></td>
+  <td>${d[1]==='Desconocido'?'<span class="chip warn">Desconocido</span>':d[1]==='—'?'<span class="muted">—</span>':d[1]}</td>
+  <td>${d[2]?conf(d[2]):'<span class="muted">—</span>'}</td>
+  <td>${d[3]==='COMPLETADO'?'<span class="chip ok"><span class="dot"></span>Completado</span>':d[3]==='ERROR'?'<span class="chip err"><span class="dot"></span>Error</span>':'<span class="chip br"><span class="dot"></span>Procesando</span>'}</td>
+  <td class="tr" style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn gh sm" title="Ver" onclick="location.hash='#/documentos/${d[5]}'">${ic('eye')}</button><button class="btn gh sm" title="Reprocesar" onclick="toast('Reprocesando…')">${ic('refresh')}</button><button class="btn gh sm" title="Descargar" onclick="toast('Descargando JSON')">${ic('download')}</button></td></tr>`).join('')}</tbody></table>
+  <div class="pager"><span>Mostrando ${n?'1–'+L.length+' de '+L.length:'1–10 de 214'} documentos</span><div><button>${ic('left',14)}</button><button class="on">1</button>${n?'':'<button>2</button><button>3</button><button>…</button><button>22</button>'}<button>${ic('right',14)}</button></div></div>`;
+}
+const opt=(arr,cur)=>arr.map(([k,l])=>`<option value="${k}" ${k===cur?'selected':''}>${l}</option>`).join('');
+V.documentos=()=>`
+ <div class="ph"><div><h1>Documentos</h1><p>Historial de todo lo que se ha procesado.</p></div><a class="btn pri" href="#/">${ic('upload')}Procesar documento</a></div>
+ <div class="kpis"><div class="card kpi"><small>Procesados hoy</small><b>38</b><span class="chip ok">▲ 12 % vs. ayer</span></div><div class="card kpi"><small>Confianza promedio</small><b>87 %</b><span class="chip ok">Estable</span></div><div class="card kpi"><small>Tipo desconocido</small><b>4</b><span class="chip warn">Requieren plantilla</span></div><div class="card kpi"><small>Con error</small><b>1</b><span class="chip err">Revisar</span></div></div>
+ <div class="card"><div class="filters"><div class="sr">${ic('search',15)}<input class="in" id="q" value="${DF.q.replace(/"/g,'&quot;')}" placeholder="Buscar por archivo, cliente o texto…" autocomplete="off" style="min-width:290px"><button class="clr" id="qx" title="Borrar" style="${DF.q?'':'display:none'}">${ic('x',14)}</button></div>
+  <select class="in" id="ftipo">${opt([['','Todos los tipos'],['Planilla servicio eléctrico','Planilla servicio eléctrico'],['Cuenta de contrato','Cuenta de contrato'],['Cédula de identidad','Cédula de identidad'],['Desconocido','Desconocido']],DF.tipo)}</select>
+  <select class="in" id="fest">${opt([['','Todos los estados'],['COMPLETADO','Completado'],['PROCESANDO','Procesando'],['ERROR','Error']],DF.est)}</select>
+  <label class="dr">Desde <input class="in" type="date" id="fd" value="${DF.desde}"></label><label class="dr">Hasta <input class="in" type="date" id="fh" value="${DF.hasta}"></label></div>
+ <div id="docres">${docsTabla()}</div></div>`;
+V.documentos.after=r=>{
+  const res=r.querySelector('#docres');
+  const lig=()=>{['#limpiar','#limpiar2'].forEach(s=>{const b=r.querySelector(s);if(b)b.onclick=()=>{Object.assign(DF,{q:'',tipo:'',est:'',desde:'',hasta:''});render()}})};
+  const refrescar=()=>{res.innerHTML=docsTabla();lig()};
+  const q=r.querySelector('#q'),x=r.querySelector('#qx');
+  q.oninput=()=>{DF.q=q.value;x.style.display=q.value?'':'none';refrescar()};
+  x.onclick=()=>{DF.q='';q.value='';x.style.display='none';q.focus();refrescar()};
+  [['#ftipo','tipo'],['#fest','est'],['#fd','desde'],['#fh','hasta']].forEach(([s,k])=>{const e=r.querySelector(s);e.onchange=()=>{DF[k]=e.value;refrescar()}});
+  lig();
+};
+
+V.detalle=()=>{
+  const tab=V._tab||'res';
+  const tabs=`<div class="tabs"><button data-t="res" class="${tab==='res'?'on':''}">Resultado</button><button data-t="ocr" class="${tab==='ocr'?'on':''}">Texto OCR</button><button data-t="log" class="${tab==='log'?'on':''}">Tiempos y registro</button></div>`;
+  let body='';
+  if(tab==='res')body=resultadoHTML(true);
+  if(tab==='ocr')body=`<div class="card"><div class="ch"><span>Texto completo leído por el motor OCR</span><span style="display:flex;gap:8px"><div class="sr">${ic('search',15)}<input class="in" value="total" style="min-width:200px"></div><button class="btn sm">${ic('copy',14)}Copiar</button></span></div><div class="ocrtxt">${TXT.replace(/Total a pagar/,'<mark>Total</mark> a pagar')}</div></div>`;
+  if(tab==='log'){
+    const st=[['Ingesta',120],['Preprocesado',340],['OCR',2100],['Clasificación',45],['Extracción',80],['Validación',20]];
+    body=`<div class="grid2"><div class="card"><div class="ch">Tiempo por etapa <span class="chip">Total 2,7 s</span></div><div class="cb">${st.map(s=>`<div class="tl"><span>${s[0]}</span><div class="b"><i style="width:${s[1]/21}%"></i></div><b class="tr" style="font-variant-numeric:tabular-nums">${s[1]} ms</b></div>`).join('')}</div></div>
+    <div class="card"><div class="ch">Registro de procesamiento</div><table><thead><tr><th>Hora</th><th>Paso</th><th>Nivel</th><th>Mensaje</th></tr></thead><tbody>
+    ${[['14:32:01','ingesta','INFO','Archivo recibido (1,2 MB, 1 pág.)'],['14:32:01','preprocesado','INFO','Deskew 0,4° · binarización'],['14:32:04','ocr','INFO','412 palabras · confianza media 0,93'],['14:32:04','clasificacion','INFO','planilla_servicio_electrico 0,91'],['14:32:04','extraccion','WARN','rut_titular: sin coincidencia'],['14:32:04','validacion','WARN','consumo_kwh: confianza 0,64']].map(l=>`<tr><td class="mono muted">${l[0]}</td><td>${l[1]}</td><td><span class="chip ${l[2]==='WARN'?'warn':'ok'}">${l[2]}</span></td><td>${l[3]}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+  return `<div class="crumb"><a href="#/documentos">Documentos</a> / planilla_luz_noviembre.pdf</div>
+  <div class="ph"><div><h1>planilla_luz_noviembre.pdf</h1><p>Recibido hoy 14:32 · 1,2 MB · ID <span class="mono">9f3c2a1e-7b4d…</span></p></div>
+   <div style="display:flex;gap:8px;align-items:center"><span class="chip br">Plantilla v3</span><span class="chip">paddle-2.7</span><a class="btn" href="#/plantillas/3">${ic('pencil')}Ver plantilla</a></div></div>${tabs}${body}`;
+};
+V.detalle.after=r=>{
+  r.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{V._tab=b.dataset.t;render()});
+  wireResult(r);
+};
+
+V.plantillas=()=>{
+  if(estadoPlant==='vacio')return `<div class="ph"><div><h1>Plantillas</h1><p>Cada plantilla le enseña al sistema a reconocer y leer un tipo de documento.</p></div></div>
+  <div class="card"><div class="empty"><div class="ic">${ic('layers')}</div><h2>Crea tu primera plantilla</h2><p>Sube un documento de ejemplo y el sistema te sugerirá las palabras clave y los campos. Tú solo ajustas lo que necesites.</p><a class="btn pri" href="#/plantillas/nueva/1">${ic('plus')}Crear plantilla</a></div></div>`;
+  return `<div class="ph"><div><h1>Plantillas</h1><p>Cada plantilla le enseña al sistema a reconocer y leer un tipo de documento.</p></div>${puede('Editor')?`<a class="btn pri" href="#/plantillas/nueva/1">${ic('plus')}Nueva plantilla</a>`:''}</div>
+  <div class="card"><div class="filters"><div class="sr">${ic('search',15)}<input class="in" id="pq" value="${PQ}" placeholder="Buscar plantilla…" autocomplete="off"></div><select class="in" id="pf">${[['','Todas'],['1','Solo activas'],['0','Inactivas']].map(([k,l])=>`<option value="${k}" ${k===PF?'selected':''}>${l}</option>`).join('')}</select>${PF||PQ?`<button class="btn gh sm" id="pl" style="align-self:center">${ic('x',13)}Limpiar</button>`:''}</div>
+  <table><thead><tr><th>Plantilla</th><th>Código</th><th>Campos</th><th>Documentos</th><th>Versión</th><th>Edita</th><th>Estado</th><th class="tr">Acciones</th></tr></thead><tbody>
+  ${PLANT.map((p,i)=>[p,i]).filter(([p])=>(PF===''||(PF==='1')===p[4])&&norm(p[0]+' '+p[1]).includes(norm(PQ.trim()))).map(([p,i])=>`<tr class="row" onclick="location.hash='#/plantillas/${3-i}'"><td><b>${p[1]}</b><div class="muted" style="font-size:12px">Editada ${p[6]}</div></td><td class="mono muted">${p[0]}</td><td>${p[2]}</td><td>${p[3]}</td><td><span class="chip">${p[5]}</span></td><td><span class="chip">${ic('lock',12)}${RMIN[p[0]]}</span></td>
+   <td onclick="event.stopPropagation()"><span style="display:flex;align-items:center;gap:8px"><button class="sw ${p[4]?'on':''}" onclick="this.classList.toggle('on');this.nextElementSibling.textContent=this.classList.contains('on')?'Activa':'Inactiva'" aria-label="Activar"></button><span class="muted">${p[4]?'Activa':'Inactiva'}</span></span></td>
+   <td class="tr" onclick="event.stopPropagation()"><a class="btn gh sm" href="#/plantillas/${3-i}">${ic('pencil')}Editar</a></td></tr>`).join('')}
+  </tbody></table>${PLANT.some(p=>(PF===''||(PF==='1')===p[4])&&norm(p[0]+' '+p[1]).includes(norm(PQ.trim())))?'':`<div class="empty"><div class="ic">${ic('search')}</div><h2>No hay plantillas con ese filtro</h2><p>Prueba con otro nombre o muestra todas.</p></div>`}</div>
+  <div class="alert info" style="margin-top:16px">${ic('info',18)}<div><b>¿Un documento no se reconoce?</b>Cuando el sistema no identifica un documento, te ofrecerá crear una plantilla desde él con un clic.</div></div>`;
+};
+
+V.plantillas.after=r=>{
+  const q=r.querySelector('#pq');if(!q)return;
+  q.oninput=()=>{PQ=q.value;const c=q.selectionStart;render();const n=document.querySelector('#pq');n.focus();n.setSelectionRange(c,c)};
+  r.querySelector('#pf').onchange=e=>{PF=e.target.value;render()};
+  const l=r.querySelector('#pl');if(l)l.onclick=()=>{PF='';PQ='';render()};
+};
+/* palabras clave */
+const KW=[['dirección',4,true],['consumo',3,true],['total a pagar',5,true],['kWh',2,true],['n° cliente',3,false],['vencimiento',2,false]];
+const kwHTML=()=>KW.map(k=>`<span class="kw">${k[0]}<span class="w">${[1,2,3,4,5].map(i=>`<i class="${i<=k[1]?'f':''}"></i>`).join('')}</span><button title="Quitar">${ic('x',12)}</button></span>`).join('')+`<span class="kw plain" style="background:#fff;border-style:dashed;color:var(--ink3);cursor:pointer">${ic('plus',13)}&nbsp;Agregar</span>`;
+
+let selCampo='direccion';
+function reglaPanel(f){
+  const m=f.met;
+  const body=m==='ancla'?`<div class="grid2" style="grid-template-columns:1fr 1fr;gap:12px"><div><label class="l">Texto que precede al dato</label><input class="in" value="${f.lab.includes('cliente')||f.lab.includes('Cliente')?'N° Cliente':'Vencimiento'}"><div class="help">O haz clic sobre el dato en la imagen.</div></div><div><label class="l">Dónde buscar</label><select class="in"><option>En la misma línea; si no, la siguiente</option><option>Solo en la misma línea</option><option>En la línea de abajo</option></select></div></div>`
+   :m==='regex'?`<label class="l">Expresión regular</label><input class="in mono" value="${f.reg.replace(/"/g,'&quot;')}"><div class="help">Usa un grupo ( ) para indicar qué parte se extrae.</div>`
+   :`<div style="display:flex;gap:14px;align-items:flex-start"><div style="flex:1"><label class="l">Zona dibujada en la página</label><div class="mono" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12px">página 1 · x 0,48 · y 0,15 · ancho 0,46 · alto 0,10</div><div class="help">Dibuja un rectángulo sobre la imagen de la derecha; se guarda en coordenadas relativas.</div></div><button class="btn">${ic('target')}Redibujar zona</button></div>`;
+  return `<div class="rule"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b>Regla para “${f.l}”</b>
+   <div class="seg" id="seg">${['ancla','regex','zona'].map(x=>`<button data-m="${x}" class="${x===m?'on':''}">${x[0].toUpperCase()+x.slice(1)}</button>`).join('')}</div></div>${body}
+   <div class="live">${ic('check',15)}<span>Valor que captura ahora: <code>${f.v||'—'}</code></span><span class="muted" style="margin-left:auto">confianza ${f.c||0} %</span></div></div>`;
+}
+function camposTabla(){
+  return `<table><thead><tr><th>Nombre (JSON)</th><th>Etiqueta</th><th>Tipo</th><th>Oblig.</th><th>Método</th><th></th></tr></thead><tbody>
+  ${CAMPOS.map(f=>`<tr class="row" data-k="${f.k}" style="${f.k===selCampo?'background:#F5F6FF':''}"><td class="mono">${f.k}${['rut_titular','consumo_kwh'].includes(f.k)?' <span class="chip br" style="font-family:var(--sans)">sugerido</span>':''}</td><td>${f.l}</td>
+  <td><select class="in" style="padding:4px 8px;width:auto">${['texto','numero','monto','fecha','rut','cedula','email','telefono'].map(t=>`<option ${t===f.t?'selected':''}>${t}</option>`).join('')}</select></td>
+  <td><button class="sw ${f.req||['numero_cliente','total_pagar','fecha_vencimiento'].includes(f.k)?'on':''}" aria-label="Obligatorio"></button></td>
+  <td><span class="chip ${f.met==='zona'?'br':f.met==='regex'?'warn':'ok'}">${f.met}</span></td><td class="tr"><button class="btn gh sm" title="Eliminar">${ic('trash',14)}</button></td></tr>`).join('')}
+  </tbody></table><div style="padding:12px 16px"><button class="btn sm">${ic('plus',14)}Agregar campo</button></div>`;
+}
+function panelResultado(){
+  return `<div class="card" style="margin-top:14px"><div class="ch"><span>Resultado con esta plantilla</span><span class="chip ok"><span class="dot"></span>En vivo</span></div>
+  ${CAMPOS.map(f=>`<div class="fld ${!f.v?'miss':f.c<70?'warn':''}" style="cursor:pointer;${f.k===selCampo?'background:var(--brand-soft);border-left-color:var(--brand)':''}" data-f="${f.k}"><div class="n">${f.l}</div><div class="v" style="font-size:13px">${f.v||'Sin valor'}</div><div class="c">${f.v?conf(f.c):''}</div></div>`).join('')}</div>`;
+}
+
+V.nueva=(p=1)=>{
+  p=+p;const nm=['Documento de ejemplo','Identificación','Campos'];
+  const stp=`<div class="steps">${nm.map((n,i)=>`<div class="step ${i+1<p?'done':i+1===p?'on':''}"><span class="nb">${i+1<p?ic('check',14):i+1}</span><div>${n}<small>${['Sube y revisa la lectura','Nombre y palabras clave','Define cómo leer cada dato'][i]}</small></div></div>`).join('')}</div>`;
+  let b='';
+  if(p===1) b=`<div class="grid2" style="grid-template-columns:5fr 6fr"><div>
+     <div class="card"><div class="ch">Subir documento de ejemplo</div><div class="cb"><div class="drop" style="padding:22px">${`<div class="ic">${ic('upload')}</div>`}<strong>Arrastra el documento aquí</strong><div class="muted" style="margin-top:2px">o haz clic para elegir</div></div>
+     <div class="muted" style="text-align:center;margin:12px 0;font-size:12px">— o elige uno del historial —</div>
+     ${DOCS.slice(0,4).map((d,i)=>`<div class="file" style="margin-bottom:6px;${i===0?'border-color:var(--brand);background:var(--brand-soft)':''}"><div class="fi" style="${i===0?'':'background:var(--line2);color:var(--ink3)'}">PDF</div><div style="flex:1"><b style="font-size:13px">${d[0]}</b><div class="muted" style="font-size:12px">${d[4]}</div></div>${i===0?`<span class="chip br">${ic('check',12)}Seleccionado</span>`:''}</div>`).join('')}</div></div></div>
+     <div><div class="card"><div class="pgbar"><b style="color:var(--ink)">Lo que leyó el sistema</b><span class="chip ok"><span class="dot"></span>412 palabras · 93 %</span></div><div class="pg">${docHTML({boxes:false})}</div></div></div></div>
+     <div class="card" style="margin-top:16px"><div class="ch">Texto OCR</div><div class="ocrtxt" style="max-height:200px">${TXT}</div></div>`;
+  if(p===2) b=`<div class="grid2" style="grid-template-columns:7fr 5fr"><div>
+     <div class="card"><div class="ch">Datos de la plantilla</div><div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+       <div><label class="l">Nombre del tipo de documento</label><input class="in" value="Planilla servicio eléctrico"></div>
+       <div><label class="l">Código (identificador único)</label><input class="in mono" value="planilla_servicio_electrico"><div class="help">Solo minúsculas, números y guion bajo.</div></div>
+       <div style="grid-column:1/-1"><label class="l">Descripción (opcional)</label><textarea class="in" rows="2">Boleta mensual de consumo eléctrico residencial.</textarea></div>
+       <div><label class="l">Umbral de confianza para clasificar</label><div style="display:flex;align-items:center;gap:12px"><input type="range" min="0" max="100" value="60" style="flex:1;accent-color:var(--brand)"><b>60 %</b></div></div></div></div>
+     <div class="card" style="margin-top:16px"><div class="ch"><span>Palabras clave</span><span class="chip br">${ic('spark',12)}4 sugeridas por el sistema</span></div><div class="cb">
+       <div style="display:flex;flex-wrap:wrap;gap:8px">${kwHTML()}</div><div class="help" style="margin-top:12px">El peso (1–5) indica cuánto cuenta cada palabra para reconocer el documento. Las más específicas deberían pesar más.</div></div></div></div>
+     <div><div class="card"><div class="ch">¿Cómo funciona?</div><div class="cb" style="font-size:13px;color:var(--ink2);line-height:1.65">Cuando llega un documento, el sistema busca estas palabras y suma su peso. La plantilla con mayor puntaje gana.<br><br><b style="color:var(--ink)">Ejemplo con este documento</b>
+       <div style="margin-top:8px">${[['total a pagar',5],['dirección',4],['consumo',3],['n° cliente',3]].map(x=>`<div class="tl" style="grid-template-columns:100px 1fr 40px"><span>${x[0]}</span><div class="b"><i style="width:${x[1]*20}%"></i></div><b class="tr">${x[1]}</b></div>`).join('')}</div>
+       <div class="live" style="margin-top:12px">${ic('check',15)}<span>Puntaje de este documento: <code>91 %</code></span></div></div></div></div></div>`;
+  if(p===3){
+    const f=CAMPOS.find(x=>x.k===selCampo);
+    b=`<div class="grid2" style="grid-template-columns:7fr 5fr"><div>
+      <div class="card"><div class="ch"><span>Campos a extraer <span class="chip br" style="margin-left:6px">${ic('spark',12)}6 sugeridos</span></span></div>${camposTabla()}</div>
+      <div style="margin-top:14px" id="regla">${reglaPanel(f)}</div></div>
+      <div style="position:sticky;top:16px;align-self:start"><div class="card"><div class="pgbar"><b style="color:var(--ink)">Documento</b><span class="zm"><button class="btn gh sm">${ic('zoomout',14)}</button><button class="btn gh sm">${ic('zoomin',14)}</button></span></div><div class="pg" style="padding:12px">${docHTML({zona:f.met==='zona'})}</div></div>${panelResultado()}</div></div>`;
+  }
+  const next=p<3?`<a class="btn pri" href="#/plantillas/nueva/${p+1}">Siguiente${ic('arrow',14)}</a>`:`<button class="btn pri" onclick="toast('Plantilla guardada y activada');setTimeout(()=>location.hash='#/plantillas',700)">${ic('check',15)}Guardar y activar</button>`;
+  return `<div class="crumb"><a href="#/plantillas">Plantillas</a> / Nueva</div><div class="ph"><div><h1>Nueva plantilla</h1><p>Crea una plantilla en 3 pasos a partir de un documento de ejemplo.</p></div></div>${stp}${b}
+   <div class="foot"><a class="btn gh" href="${p>1?'#/plantillas/nueva/'+(p-1):'#/plantillas'}">${p>1?'Atrás':'Cancelar'}</a><span style="display:flex;gap:10px;align-items:center">${p===3?'<span class="muted">Se creará la versión 1</span>':''}${next}</span></div>`;
+};
+V.nueva.after=r=>{
+  r.querySelectorAll('tr.row[data-k],.fld[data-f]').forEach(e=>e.onclick=()=>{selCampo=e.dataset.k||e.dataset.f;render()});
+  r.querySelectorAll('.sw').forEach(s=>s.onclick=e=>{e.stopPropagation();s.classList.toggle('on')});
+  const seg=r.querySelector('#seg');if(seg)seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{CAMPOS.find(x=>x.k===selCampo).met=b.dataset.m;render()});
+  ligar(r);
+};
+
+V.editar=()=>{
+  return `<div class="crumb"><a href="#/plantillas">Plantillas</a> / Planilla servicio eléctrico</div>
+  <div class="ph"><div><h1>Planilla servicio eléctrico</h1><p><span class="mono">planilla_servicio_electrico</span> · versión 3 · editada hace 2 días</p></div>
+   <div style="display:flex;gap:8px;align-items:center"><span style="display:flex;align-items:center;gap:8px;margin-right:6px"><button class="sw on"></button><span class="muted">Activa</span></span><button class="btn">${ic('refresh')}Reprocesar 142 documentos</button><button class="btn pri" onclick="toast('Versión 4 guardada')">${ic('check')}Guardar como v4</button></div></div>
+  <div class="grid2" style="grid-template-columns:7fr 5fr"><div>
+   <div class="card"><div class="ch">Identificación</div><div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div><label class="l">Nombre</label><input class="in" value="Planilla servicio eléctrico"></div><div><label class="l">Código</label><input class="in mono" value="planilla_servicio_electrico" disabled></div></div></div>
+   <div class="card" style="margin-top:16px"><div class="ch">Palabras clave</div><div class="cb"><div style="display:flex;flex-wrap:wrap;gap:8px">${kwHTML()}</div></div></div>
+   <div class="card" style="margin-top:16px"><div class="ch">Campos</div>${camposTabla()}</div>
+   <div style="margin-top:14px">${reglaPanel(CAMPOS.find(x=>x.k===selCampo))}</div></div>
+   <div><div class="card"><div class="ch">Historial de versiones</div>
+    ${[[3,'Actual','Ajuste de zona en “Dirección”','hace 2 días · Claudio H.'],[2,'','Se agregó campo “consumo_kwh”','hace 2 semanas · Claudio H.'],[1,'','Versión inicial desde planilla_luz_septiembre.pdf','hace 1 mes · Sistema']].map(v=>`<div class="ver ${v[1]?'cur':''}"><span class="vb">v${v[0]}</span><div style="flex:1"><b style="font-weight:600">${v[2]}</b><div class="muted" style="font-size:12px">${v[3]}</div></div>${v[1]?'<span class="chip ok">Actual</span>':'<button class="btn sm gh">Restaurar</button>'}</div>`).join('')}</div>
+   <div class="card" style="margin-top:16px"><div class="ch">Documentos que usan esta plantilla</div><div class="cb" style="display:flex;gap:24px"><div><b style="font-size:24px">142</b><div class="muted">procesados</div></div><div><b style="font-size:24px">89 %</b><div class="muted">confianza media</div></div><div><b style="font-size:24px">96 %</b><div class="muted">campos válidos</div></div></div>
+    <div class="alert info" style="margin:0 16px 16px">${ic('info',18)}<div style="font-size:13px">Al guardar una nueva versión, los documentos anteriores conservan la versión con la que fueron leídos. Usa “Reprocesar” si quieres aplicarles los cambios.</div></div></div></div></div>`;
+};
+V.editar.after=V.nueva.after;
+
+V.acceso=()=>`<div style="max-width:520px;margin:40px auto 0"><div class="card"><div class="cb" style="padding:30px">
+  <div class="empty" style="padding:0 0 18px"><div class="ic">${ic('key')}</div><h2>Configurar acceso</h2><p style="margin:0">Ingresa la clave de API que te entregó el administrador. Se guarda solo en este navegador.</p></div>
+  <label class="l">Clave de API</label><input class="in mono" type="password" value="sk_live_••••••••••••••••••••"><div class="help">Se envía en cada petición como <span class="mono">X-API-Key</span>.</div>
+  <label class="l" style="margin-top:14px">Servidor</label><input class="in mono" value="/api" disabled>
+  <div class="live" style="background:#F0FDF4">${ic('check',15)}<span>Conexión verificada · API 1.0.3</span></div>
+  <div style="display:flex;justify-content:space-between;margin-top:20px"><a class="btn gh" href="#/">Cancelar</a><button class="btn pri" onclick="toast('Acceso guardado');setTimeout(()=>location.hash='#/',600)">Guardar y entrar</button></div></div></div></div>`;
+
+/* =====================  FLUJOS DE CAPTURA, ROLES Y USUARIOS (docs/07)  ===================== */
+P.lock='<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+P.camera='<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>';
+P.users='<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>';
+P.link='<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>';
+P.shield='<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>';
+
+const ROLES=['Administrador','Editor','Operador'];
+let ROL='Administrador';
+const rk=r=>ROLES.length-1-ROLES.indexOf(r);           // Administrador=2, Editor=1, Operador=0
+const puede=min=>rk(ROL)>=rk(min);
+const RMIN={planilla_servicio_electrico:'Editor',cuenta_contrato:'Editor',cedula_identidad:'Administrador'};
+
+const ALLP=[['cedula_identidad','Cédula de identidad',false],['planilla_servicio_electrico','Planilla servicio eléctrico',true],['cuenta_contrato','Cuenta de contrato',true],['planilla_agua','Planilla de agua',true],['planilla_gas','Planilla de gas',true]];
+const pn=c=>(ALLP.find(p=>p[0]===c)||[0,c])[1];
+let FLUJOS=[
+ {codigo:'alta_cliente_cedula',nombre:'Alta de cliente — cédula',plant:['cedula_identidad'],instr:'Sube o escanea tu cédula de identidad',cam:true,pdf:false,activo:true,rmin:'Editor',docs:64,act:'hace 3 días'},
+ {codigo:'regularizacion_servicios',nombre:'Regularización de servicios',plant:['planilla_servicio_electrico','planilla_agua','planilla_gas'],instr:'Sube tu última planilla de servicios',cam:true,pdf:true,activo:true,rmin:'Editor',docs:212,act:'hace 1 semana'},
+ {codigo:'recepcion_contratos',nombre:'Recepción de contratos',plant:['cuenta_contrato'],instr:'Adjunta el contrato firmado',cam:false,pdf:true,activo:false,rmin:'Administrador',docs:9,act:'hace 1 mes'}
+];
+const fmts=f=>['JPG','PNG'].concat(f.pdf?['PDF']:[]).join(', ');
+
+/* ---- tarjeta de captura: la usa la vista previa del administrador y la pantalla del usuario final ---- */
+function capturaCard(f,live){
+  const dis=live?'':' disabled';
+  return `<div class="capcard"><h2>${(f.instr||'Escribe la instrucción para el usuario').replace(/</g,'&lt;')}</h2>
+   <div class="capbtns">${f.cam?`<button class="capbtn" id="bcam"${dis}><span class="ci">${ic('camera',22)}</span><b>Usar cámara</b><small>Toma una foto ahora</small></button>`:''}
+   <button class="capbtn" id="bfile"${dis}><span class="ci">${ic('file',22)}</span><b>Elegir archivo</b><small>Desde tu equipo</small></button></div>
+   ${live?`<div class="capdrop" id="cdrop">${ic('upload',18)}<span>o arrastra tu archivo aquí</span></div>`:''}
+   <div class="capfmt">Formatos aceptados: ${fmts(f)} · hasta 10 MB</div></div>`;
+}
+
+/* ---- Administrador de flujos ---- */
+let FQ='',FE='';
+function sinPermiso(min){return `<div class="card" style="max-width:560px;margin:40px auto"><div class="empty"><div class="ic">${ic('lock')}</div><h2>No tienes permiso para ver esta pantalla</h2><p>Se requiere el rol <b>${min}</b> o superior. Tu rol actual es <b>${ROL}</b>. Pide acceso a un administrador.</p><a class="btn" href="#/">Volver a Procesar</a></div></div>`}
+V.flujos=()=>{
+  if(!puede('Editor'))return sinPermiso('Editor');
+  const L=FLUJOS.filter(f=>(FE===''||(FE==='1')===f.activo)&&norm(f.nombre+' '+f.codigo+' '+f.instr).includes(norm(FQ.trim())));
+  const inact=f=>f.plant.filter(c=>!(ALLP.find(p=>p[0]===c)||[0,0,true])[2]).length;
+  return `<div class="ph"><div><h1>Flujos de captura</h1><p>Define qué documento se le pide al usuario en cada punto de entrada.</p></div><a class="btn pri" href="#/flujos/nuevo">${ic('plus')}Nuevo flujo</a></div>
+  <div class="card"><div class="filters"><div class="sr">${ic('search',15)}<input class="in" id="fq" value="${FQ}" placeholder="Buscar flujo…" autocomplete="off"></div>
+   <select class="in" id="fe">${[['','Todos'],['1','Solo activos'],['0','Inactivos']].map(([k,l])=>`<option value="${k}" ${k===FE?'selected':''}>${l}</option>`).join('')}</select>${FQ||FE?`<button class="btn gh sm" id="fl" style="align-self:center">${ic('x',13)}Limpiar</button>`:''}</div>
+  ${L.length?`<table><thead><tr><th>Flujo</th><th>Plantillas permitidas</th><th>Acepta</th><th>Documentos</th><th>Edita</th><th>Estado</th><th class="tr">Acciones</th></tr></thead><tbody>
+  ${L.map(f=>`<tr class="row" onclick="location.hash='#/flujos/${f.codigo}'"><td><b>${f.nombre}</b><div class="mono muted" style="font-size:12px">${f.codigo}</div></td>
+   <td><div style="display:flex;gap:4px;flex-wrap:wrap">${f.plant.map(c=>`<span class="chip ${(ALLP.find(p=>p[0]===c)||[0,0,true])[2]?'':'warn'}">${pn(c)}</span>`).join('')}</div>${inact(f)?`<div style="font-size:12px;color:var(--warn);margin-top:4px;display:flex;gap:4px;align-items:center">${ic('alert',12)}${inact(f)} plantilla inactiva</div>`:''}</td>
+   <td><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">${f.cam?`<span class="chip">${ic('camera',12)}Cámara</span>`:''}<span class="chip">${f.pdf?'JPG · PNG · PDF':'JPG · PNG'}</span></div></td>
+   <td>${f.docs}</td><td><span class="chip">${ic('lock',12)}${f.rmin}</span></td>
+   <td onclick="event.stopPropagation()"><span style="display:flex;align-items:center;gap:8px"><button class="sw ${f.activo?'on':''}" data-fc="${f.codigo}" aria-label="Activar"></button><span class="muted">${f.activo?'Activo':'Inactivo'}</span></span></td>
+   <td class="tr" style="white-space:nowrap" onclick="event.stopPropagation()"><a class="btn gh sm" title="Probar como lo verá el usuario" aria-label="Probar" href="#/captura/${f.codigo}">${ic('eye')}</a><a class="btn gh sm" title="Editar" aria-label="Editar" href="#/flujos/${f.codigo}">${ic('pencil')}</a></td></tr>`).join('')}</tbody></table>`
+  :`<div class="empty"><div class="ic">${ic('search')}</div><h2>No hay flujos con ese filtro</h2><p>Prueba con otro nombre o muestra todos.</p></div>`}</div>
+  <div class="alert info" style="margin-top:16px">${ic('info',18)}<div><b>¿Cómo se usan?</b>Cada flujo tiene un enlace directo (<span class="mono">/procesar/código</span>) que puedes compartir o incrustar en otro proceso. El usuario final solo ve la instrucción, no las plantillas.</div></div>`;
+};
+V.flujos.after=r=>{
+  const q=r.querySelector('#fq');if(!q)return;
+  q.oninput=()=>{FQ=q.value;const c=q.selectionStart;render();const n=document.querySelector('#fq');n.focus();n.setSelectionRange(c,c)};
+  r.querySelector('#fe').onchange=e=>{FE=e.target.value;render()};
+  const l=r.querySelector('#fl');if(l)l.onclick=()=>{FQ='';FE='';render()};
+  r.querySelectorAll('[data-fc]').forEach(b=>b.onclick=()=>{const f=FLUJOS.find(x=>x.codigo===b.dataset.fc);f.activo=!f.activo;toast(f.activo?'Flujo activado':'Flujo desactivado');render()});
+};
+
+/* ---- crear / editar flujo ---- */
+let FS=null;
+const slug=t=>norm(t).replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+V.flujo=code=>{
+  if(!puede('Editor'))return sinPermiso('Editor');
+  const nuevo=code==='nuevo',f=FLUJOS.find(x=>x.codigo===code);
+  if(!FS||FS._k!==code)FS=nuevo?{_k:code,nombre:'',codigo:'',instr:'',plant:[],cam:true,pdf:false,activo:true,rmin:'Editor'}:{_k:code,...f,plant:[...f.plant]};
+  const bloqueado=!nuevo&&!puede(FS.rmin);
+  return `<div class="crumb"><a href="#/flujos">Flujos de captura</a> / ${nuevo?'Nuevo':FS.nombre}</div>
+  <div class="ph"><div><h1>${nuevo?'Nuevo flujo de captura':FS.nombre}</h1><p>${nuevo?'Configura qué documento se le pedirá al usuario final.':`<span class="mono">${FS.codigo}</span> · editado ${f.act}`}</p></div>
+   ${nuevo?'':`<div style="display:flex;gap:8px"><a class="btn" href="#/captura/${FS.codigo}">${ic('eye')}Probar como usuario</a></div>`}</div>
+  ${bloqueado?`<div class="alert warn" style="margin-bottom:16px">${ic('lock',18)}<div><b>Solo lectura</b>Este flujo solo lo pueden editar usuarios con rol ${FS.rmin} o superior.</div></div>`:''}
+  <div id="fwrap" class="${bloqueado?'ro':''}"><div class="grid2" style="grid-template-columns:7fr 5fr"><div>
+   <div class="card"><div class="ch">Identificación</div><div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+     <div><label class="l">Nombre del flujo</label><input class="in" id="fn" value="${FS.nombre.replace(/"/g,'&quot;')}" placeholder="Ej.: Alta de cliente — cédula"></div>
+     <div><label class="l">Código (para el enlace)</label><input class="in mono" id="fc" value="${FS.codigo}" ${nuevo?'':'disabled'} placeholder="se genera solo"><div class="help">/procesar/<span id="fcs">${FS.codigo||'código'}</span></div></div>
+     <div style="grid-column:1/-1"><label class="l">Instrucción para el usuario final</label><input class="in" id="fi" maxlength="80" value="${FS.instr.replace(/"/g,'&quot;')}" placeholder="Ej.: Sube o escanea tu cédula de identidad"><div class="help">Es lo primero que verá la persona. Máx. 80 caracteres · <span id="fic">${FS.instr.length}</span>/80</div></div></div></div>
+   <div class="card" style="margin-top:16px"><div class="ch"><span>Documentos permitidos</span><span class="muted" style="font-weight:400;font-size:12px" id="fpc"></span></div><div class="cb" style="padding:6px 16px">
+     ${ALLP.map(p=>`<label class="ck"><input type="checkbox" data-p="${p[0]}" ${FS.plant.includes(p[0])?'checked':''}><span><b>${p[1]}</b><small class="mono">${p[0]}</small></span>${p[2]?'<span class="chip ok" style="margin-left:auto"><span class="dot"></span>Activa</span>':'<span class="chip warn" style="margin-left:auto">Inactiva</span>'}</label>`).join('')}
+     <div id="fwarn"></div></div></div>
+   <div class="card" style="margin-top:16px"><div class="ch">Opciones de captura</div><div class="cb">
+     <div class="opt"><div><b>Permitir cámara</b><div class="muted" style="font-size:12px">Muestra el botón “Usar cámara” (ideal en celular).</div></div><button class="sw ${FS.cam?'on':''}" id="fcam" aria-label="Cámara"></button></div>
+     <div class="opt"><div><b>Permitir PDF</b><div class="muted" style="font-size:12px">Si está apagado solo se aceptan imágenes JPG y PNG.</div></div><button class="sw ${FS.pdf?'on':''}" id="fpdf" aria-label="PDF"></button></div></div></div>
+   ${rk(ROL)===2?`<div class="card" style="margin-top:16px"><div class="ch">Permisos</div><div class="cb"><label class="l">Rol mínimo para editar este flujo</label><select class="in" id="frm" style="max-width:260px">${ROLES.map(r=>`<option ${r===FS.rmin?'selected':''}>${r}</option>`).join('')}</select><div class="help">Solo un Administrador ve y cambia este campo.</div></div></div>`:''}
+  </div>
+  <div style="position:sticky;top:16px;align-self:start"><div class="card"><div class="ch"><span>Así lo verá el usuario final</span><span class="chip br">Vista previa</span></div><div class="pg" style="padding:22px 16px;border-radius:0 0 10px 10px"><div id="fprev"></div></div></div>
+   <div class="card" style="margin-top:14px"><div class="ch">Enlace directo</div><div class="cb" style="display:flex;gap:8px"><input class="in mono" id="flnk" readonly><button class="btn" onclick="try{navigator.clipboard.writeText(document.getElementById('flnk').value)}catch(e){};toast('Enlace copiado')">${ic('copy',14)}</button></div></div></div></div>
+  <div class="foot"><a class="btn gh" href="#/flujos">Cancelar</a><span style="display:flex;gap:12px;align-items:center"><span class="muted" id="fval"></span><button class="btn pri" id="fsave">${ic('check',15)}${nuevo?'Crear flujo':'Guardar cambios'}</button></span></div></div>`;
+};
+V.flujo.after=r=>{
+  const nuevo=FS._k==='nuevo';
+  const upd=()=>{
+    r.querySelector('#fprev').innerHTML=capturaCard(FS,false);
+    r.querySelector('#fcs').textContent=FS.codigo||'código';
+    r.querySelector('#flnk').value=location.origin.replace('null','')+'/procesar/'+(FS.codigo||'…');
+    r.querySelector('#fic').textContent=FS.instr.length;
+    r.querySelector('#fpc').textContent=FS.plant.length+' seleccionada'+(FS.plant.length===1?'':'s');
+    const ina=FS.plant.filter(c=>!ALLP.find(p=>p[0]===c)[2]).map(pn);
+    r.querySelector('#fwarn').innerHTML=ina.length?`<div class="alert warn" style="margin:8px 0 10px;font-size:13px">${ic('alert',16)}<div><b>${ina.join(', ')} está desactivada</b>El flujo no podrá reconocerla hasta que la actives en Plantillas.</div></div>`:'';
+    const falta=!FS.nombre.trim()?'Falta el nombre':!FS.instr.trim()?'Falta la instrucción':!FS.plant.length?'Elige al menos un documento':'';
+    r.querySelector('#fval').textContent=falta;r.querySelector('#fsave').disabled=!!falta;
+  };
+  r.querySelector('#fn').oninput=e=>{FS.nombre=e.target.value;if(nuevo&&!FS._manual){FS.codigo=slug(FS.nombre);r.querySelector('#fc').value=FS.codigo}upd()};
+  r.querySelector('#fc').oninput=e=>{FS.codigo=slug(e.target.value);FS._manual=true;upd()};
+  r.querySelector('#fi').oninput=e=>{FS.instr=e.target.value;upd()};
+  r.querySelectorAll('[data-p]').forEach(c=>c.onchange=()=>{const k=c.dataset.p;FS.plant=c.checked?[...FS.plant,k]:FS.plant.filter(x=>x!==k);upd()});
+  r.querySelector('#fcam').onclick=e=>{FS.cam=!FS.cam;e.currentTarget.classList.toggle('on',FS.cam);upd()};
+  r.querySelector('#fpdf').onclick=e=>{FS.pdf=!FS.pdf;e.currentTarget.classList.toggle('on',FS.pdf);upd()};
+  const rm=r.querySelector('#frm');if(rm)rm.onchange=()=>{FS.rmin=rm.value;toast('Rol mínimo: '+FS.rmin)};
+  r.querySelector('#fsave').onclick=()=>{
+    const d={codigo:FS.codigo,nombre:FS.nombre.trim(),plant:FS.plant,instr:FS.instr.trim(),cam:FS.cam,pdf:FS.pdf,activo:FS.activo,rmin:FS.rmin,docs:0,act:'ahora'};
+    const i=FLUJOS.findIndex(x=>x.codigo===FS._k);
+    if(i>=0)FLUJOS[i]={...FLUJOS[i],...d};else FLUJOS.push(d);
+    toast(nuevo?'Flujo creado':'Cambios guardados');FS=null;setTimeout(()=>location.hash='#/flujos',600);
+  };
+  if(r.querySelector('#fwrap.ro'))r.querySelectorAll('#fwrap input,#fwrap select,#fwrap .sw,#fsave').forEach(e=>e.disabled=true);
+  upd();
+};
+
+/* ---- pantalla del usuario final: captura dirigida ---- */
+const CAP={flujo:'alta_cliente_cedula',estado:'idle',escenario:'ok',file:null,paso:0,tok:0,err:''};
+const CAMPOS_CAP={
+ cedula_identidad:[['Nombre completo','Juan Ramírez Pérez',96],['RUN','12.345.678-5',94],['Fecha de nacimiento','14-03-1988',91],['Válida hasta','22-09-2031',78]],
+ planilla_servicio_electrico:[['N° de cliente','1234567-8',95],['Dirección','Av. Siempre Viva 742, Providencia',82],['Total a pagar','$ 45.320',93],['Vencimiento','30-11-2026',90]],
+ cuenta_contrato:[['N° de contrato','8841',92],['Titular','Marta Soto',88],['Vigencia','12 meses',66]]
+};
+const PASOS=[['Archivo recibido','RECIBIDO'],['Leyendo el documento','PROCESANDO · OCR'],['Identificando el documento','PROCESANDO · clasificación'],['Extrayendo los datos','PROCESANDO · extracción'],['Listo','COMPLETADO']];
+function cedulaMock(){return `<div class="cedm"><div class="cph"></div><div class="cl"><b>REPÚBLICA DE CHILE</b><i></i><i style="width:70%"></i><i style="width:55%"></i></div></div>`}
+function capFlujo(){return FLUJOS.find(f=>f.codigo===CAP.flujo)||FLUJOS[0]}
+function capPreview(){
+  const f=CAP.file;if(!f)return '';
+  return f.url?`<img src="${f.url}" alt="" style="width:100%;height:100%;object-fit:cover">`:f.cam?cedulaMock():`<div style="display:grid;place-items:center;height:100%;color:var(--err);font-weight:700">PDF</div>`;
+}
+V.captura=code=>{
+  if(code&&code!==CAP.flujo&&FLUJOS.some(f=>f.codigo===code)){CAP.flujo=code;CAP.estado='idle';CAP.file=null}
+  const f=capFlujo(),e=CAP.estado;
+  const head=`<div class="caphead"><div class="lg" style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#4338CA);display:grid;place-items:center;color:#fff">${ic('scan',16)}</div><b>Lector OCR</b></div>`;
+  let body='';
+  if(!f.activo&&e==='idle')body=`<div class="capcard"><div class="empty" style="padding:10px"><div class="ic">${ic('lock')}</div><h2>Este enlace no está disponible</h2><p style="margin:0">El proceso fue desactivado temporalmente. Contacta a quien te envió este enlace.</p></div></div>`;
+  else if(e==='idle')body=capturaCard(f,true)+(CAP.err?`<div class="alert err" style="margin-top:12px">${ic('alert',18)}<div>${CAP.err}</div></div>`:'')+`<div class="caphelp">${ic('shield',14)}Tu documento se usa solo para este trámite.</div><input type="file" id="cfile" hidden accept="${['image/jpeg','image/png'].concat(f.pdf?['application/pdf']:[]).join(',')}">`;
+  else if(e==='proc'){
+    body=`<div class="capcard"><div class="capfile"><div class="capth">${capPreview()}</div><div style="flex:1;min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${CAP.file.name}</b><span class="muted" style="font-size:12px">${CAP.file.size}</span></div></div>
+     <div class="prog" style="margin:18px 0 14px"></div>
+     <div class="capsteps">${PASOS.slice(0,4).map((p,i)=>`<div class="cs ${i<CAP.paso?'d':i===CAP.paso?'a':''}"><span>${i<CAP.paso?ic('check',13):i+1}</span>${p[0]}</div>`).join('')}</div>
+     <div class="mono muted" style="font-size:11.5px;margin-top:14px">estado: ${PASOS[Math.min(CAP.paso,3)][1]} · solo ${f.plant.length===1?'1 documento permitido':f.plant.length+' documentos permitidos'} en este flujo</div></div>`;
+  }
+  else if(e==='ok'){
+    const tipo=f.plant[CAP.paso2||0]||f.plant[0],C=CAMPOS_CAP[tipo]||CAMPOS_CAP.cedula_identidad;
+    body=`<div class="capcard" style="text-align:left"><div style="display:flex;gap:10px;align-items:center;margin-bottom:4px"><span class="chip ok">${ic('check',13)}Documento reconocido</span><span class="muted" style="font-size:12px">${pn(tipo)}</span></div>
+      <h2 style="text-align:left;margin:8px 0 2px">Confirma tus datos</h2><p class="muted" style="margin-bottom:12px">Revisa que todo esté bien. Puedes corregir lo que no coincida.</p>
+      <div class="capfile" style="margin-bottom:14px"><div class="capth">${capPreview()}</div><div style="flex:1;min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${CAP.file.name}</b><span class="muted" style="font-size:12px">${CAP.file.size}</span></div><button class="btn gh sm" id="cre">${ic('refresh',14)}Cambiar</button></div>
+      ${C.map(c=>`<div class="capf ${c[2]<70?'rev':''}"><label>${c[0]}${c[2]<70?'<span class="tag">Revisa este dato</span>':''}</label><input class="in" value="${c[1]}"></div>`).join('')}
+      <div style="display:flex;gap:10px;margin-top:18px"><button class="btn pri" style="flex:1;justify-content:center;padding:11px" id="cok">${ic('check',15)}Todo correcto, continuar</button></div></div>`;
+  }
+  else if(e==='done')body=`<div class="capcard"><div class="empty" style="padding:10px"><div class="ic" style="background:var(--ok-soft);color:var(--ok)">${ic('check')}</div><h2>¡Listo, recibimos tu documento!</h2><p>Tus datos fueron enviados correctamente. Ya puedes cerrar esta página.</p><button class="btn" id="cnew">Subir otro documento</button></div></div>`;
+  else if(e==='nomatch')body=`<div class="capcard"><div class="empty" style="padding:6px 6px 14px"><div class="ic" style="background:var(--warn-soft);color:var(--warn)">${ic('alert')}</div><h2>Este no parece ser el documento que necesitamos</h2><p style="margin-bottom:10px">Esperábamos: <b>${f.instr}</b></p></div>
+     <div class="captips"><b>Consejos</b><ul><li>Usa buena luz y evita reflejos.</li><li>Que se vea el documento completo, sin cortes.</li><li>Verifica que sea el documento correcto.</li></ul></div>
+     <button class="btn pri" style="width:100%;justify-content:center;padding:11px;margin-top:14px" id="cnew">${ic('refresh',15)}Intentar con otro archivo</button>
+     <div class="mono muted" style="font-size:11.5px;margin-top:12px;text-align:center">estado: NO_COINCIDE · ninguna plantilla del flujo superó el umbral</div></div>`;
+  else if(e==='error')body=`<div class="capcard"><div class="empty" style="padding:6px"><div class="ic" style="background:var(--err-soft);color:var(--err)">${ic('alert')}</div><h2>No pudimos leer tu documento</h2><p>Hubo un problema de nuestro lado. Tu archivo no se perdió; intenta nuevamente en unos segundos.</p><button class="btn pri" id="cretry">${ic('refresh',15)}Reintentar</button></div><div class="mono muted" style="font-size:11.5px;text-align:center">estado: ERROR · 500 el motor OCR no respondió</div></div>`;
+  return `<div class="capwrap">${head}${body}</div>`;
+};
+function capCamara(){
+  const m=$('#modal2');m.innerHTML=`<div class="box" style="width:min(560px,100%);background:#0B1020;color:#fff"><div style="border-color:#1F2937">Usar cámara<button class="btn sm gh" style="color:#fff" onclick="cerrar2()">${ic('x',14)}</button></div>
+   <div class="vf"><div class="vfr"><span></span><span></span><span></span><span></span></div><div class="vfh">Alinea tu documento dentro del marco</div></div>
+   <div style="padding:16px;text-align:center"><button class="shutter" id="shut" aria-label="Tomar foto"></button><div class="muted" style="margin-top:8px;font-size:12px;color:#9CA3AF">Toca para tomar la foto</div></div></div>`;
+  m.classList.add('on');$('#shut').onclick=()=>{cerrar2();capIniciar({name:'foto_camara.jpg',size:'1,4 MB',cam:true})};
+}
+function cerrar2(){$('#modal2').classList.remove('on')}
+function capIniciar(file){
+  const f=capFlujo();
+  CAP.file=file;CAP.estado='proc';CAP.paso=0;CAP.err='';const tok=++CAP.tok;render();
+  const avanza=()=>{
+    if(tok!==CAP.tok||!location.hash.startsWith('#/captura'))return;
+    CAP.paso++;
+    if(CAP.paso<4){render();setTimeout(avanza,750)}
+    else{CAP.estado=CAP.escenario==='ok'?'ok':CAP.escenario==='nomatch'?'nomatch':'error';CAP.paso=0;render()}
+  };
+  setTimeout(avanza,750);
+}
+function capElegir(file){
+  const f=capFlujo();
+  const ok=['image/jpeg','image/png'].concat(f.pdf?['application/pdf']:[]);
+  if(!ok.includes(file.type)){CAP.err=`Ese formato no es válido. Usa ${fmts(f)}.`;render();return}
+  if(file.size>10*1048576){CAP.err='El archivo pesa más de 10 MB. Prueba con uno más liviano.';render();return}
+  const kb=file.size/1024;
+  capIniciar({name:file.name,size:kb>1024?(kb/1024).toFixed(1).replace('.',',')+' MB':Math.round(kb)+' KB',url:file.type.startsWith('image/')?URL.createObjectURL(file):null});
+}
+V.captura.after=r=>{
+  const inp=r.querySelector('#cfile'),bf=r.querySelector('#bfile'),bc=r.querySelector('#bcam'),dz=r.querySelector('#cdrop');
+  if(inp){bf.onclick=()=>inp.click();inp.onchange=()=>{if(inp.files[0])capElegir(inp.files[0])}}
+  if(bc)bc.onclick=capCamara;
+  if(dz){['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over')}));
+    ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over')}));
+    dz.addEventListener('drop',e=>{if(e.dataTransfer.files[0])capElegir(e.dataTransfer.files[0])});dz.onclick=()=>inp&&inp.click()}
+  const set=(id,fn)=>{const b=r.querySelector(id);if(b)b.onclick=fn};
+  set('#cnew',()=>{CAP.estado='idle';CAP.file=null;render()});set('#cre',()=>{CAP.estado='idle';CAP.file=null;render()});
+  set('#cretry',()=>capIniciar(CAP.file));
+  set('#cok',()=>{CAP.estado='done';render()});
+};
+window.setCapF=k=>{CAP.flujo=k;CAP.estado='idle';CAP.file=null;CAP.tok++;location.hash='#/captura/'+k;render()};
+window.setCapE=k=>{CAP.escenario=k;toast('Próximo resultado: '+({ok:'documento correcto',nomatch:'no coincide',error:'error'})[k])};
+
+/* ---- usuarios ---- */
+let USR=[
+ {n:'Claudio Hidalgo',rol:'Administrador',act:true,key:'a9f3',uso:'hoy 14:30',yo:true},
+ {n:'Jesús (líder de aplicaciones)',rol:'Administrador',act:true,key:'c21b',uso:'hoy 11:02'},
+ {n:'María Fuentes',rol:'Editor',act:true,key:'77de',uso:'ayer 17:45'},
+ {n:'Pedro Rojas',rol:'Operador',act:true,key:'0b4a',uso:'ayer 09:12'},
+ {n:'Portal clientes (integración)',rol:'Operador',act:true,key:'e88c',uso:'hace 5 min'},
+ {n:'Ana Soto',rol:'Operador',act:false,key:'3f10',uso:'hace 2 meses'}
+];
+const genKey=()=>'ocr_live_'+Array.from({length:32},()=>'abcdef0123456789'[Math.floor(Math.random()*16)]).join('');
+function mostrarKey(nombre,k){
+  const m=$('#modal2');m.innerHTML=`<div class="box" style="width:min(520px,100%)"><div>Nueva API key<button class="btn sm gh" onclick="cerrar2()">${ic('x',14)}</button></div><div class="cb">
+   <p style="margin-bottom:12px">Clave para <b>${nombre}</b>:</p><div style="display:flex;gap:8px"><input class="in mono" readonly value="${k}" id="kv"><button class="btn" onclick="try{navigator.clipboard.writeText(document.getElementById('kv').value)}catch(e){};toast('Clave copiada')">${ic('copy',14)}Copiar</button></div>
+   <div class="alert warn" style="margin-top:14px">${ic('alert',18)}<div><b>Cópiala ahora</b>Por seguridad solo se muestra esta vez. Si la pierdes, deberás generar otra y la anterior dejará de funcionar.</div></div>
+   <div style="text-align:right;margin-top:16px"><button class="btn pri" onclick="cerrar2()">Ya la guardé</button></div></div></div>`;
+  m.classList.add('on');
+}
+function nuevoUsuario(){
+  const m=$('#modal2');m.innerHTML=`<div class="box" style="width:min(460px,100%)"><div>Nuevo usuario<button class="btn sm gh" onclick="cerrar2()">${ic('x',14)}</button></div><div class="cb">
+   <label class="l">Nombre</label><input class="in" id="unn" placeholder="Ej.: Carla Núñez"><label class="l" style="margin-top:12px">Rol</label><select class="in" id="unr"><option>Operador</option><option>Editor</option><option>Administrador</option></select>
+   <div class="help" id="unh">Solo puede procesar documentos y ver resultados.</div>
+   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn gh" onclick="cerrar2()">Cancelar</button><button class="btn pri" id="unok" disabled>Crear y generar clave</button></div></div></div>`;
+  m.classList.add('on');
+  const n=$('#unn'),r=$('#unr'),ok=$('#unok');
+  const H={Operador:'Solo puede procesar documentos y ver resultados.',Editor:'Puede crear y editar plantillas y flujos, pero no gestionar usuarios.',Administrador:'Acceso total, incluida la gestión de usuarios y permisos.'};
+  n.oninput=()=>ok.disabled=!n.value.trim();r.onchange=()=>$('#unh').textContent=H[r.value];
+  ok.onclick=()=>{const k=genKey();USR.unshift({n:n.value.trim(),rol:r.value,act:true,key:k.slice(-4),uso:'nunca'});cerrar2();render();setTimeout(()=>mostrarKey(n.value.trim(),k),150)};
+}
+V.usuarios=()=>{
+  if(!puede('Administrador'))return sinPermiso('Administrador');
+  return `<div class="ph"><div><h1>Usuarios</h1><p>Quién puede entrar y qué puede hacer. Cada usuario tiene su propia clave de acceso.</p></div><button class="btn pri" id="unew">${ic('plus')}Nuevo usuario</button></div>
+  <div class="grid2" style="grid-template-columns:1fr"><div class="card"><table><thead><tr><th>Usuario</th><th>Rol</th><th>API key</th><th>Último uso</th><th>Estado</th><th class="tr">Acciones</th></tr></thead><tbody>
+  ${USR.map((u,i)=>`<tr><td><b>${u.n}</b>${u.yo?' <span class="chip br">Tú</span>':''}</td>
+   <td><select class="in" data-ur="${i}" style="padding:4px 8px;width:auto" ${u.yo?'disabled title="No puedes cambiar tu propio rol"':''}>${ROLES.map(r=>`<option ${r===u.rol?'selected':''}>${r}</option>`).join('')}</select></td>
+   <td class="mono muted">ocr_••••${u.key}</td><td class="muted">${u.uso}</td>
+   <td><span style="display:flex;align-items:center;gap:8px"><button class="sw ${u.act?'on':''}" data-ua="${i}" ${u.yo?'disabled':''} aria-label="Activo"></button><span class="muted">${u.act?'Activo':'Inactivo'}</span></span></td>
+   <td class="tr"><button class="btn sm" data-uk="${i}">${ic('key',14)}Nueva clave</button></td></tr>`).join('')}</tbody></table></div>
+  <div class="card" style="align-self:start"><div class="ch">¿Qué puede hacer cada rol?</div><div class="cb" style="font-size:13px;display:grid;gap:14px">
+   <div><span class="chip br">Administrador</span><div class="muted" style="margin-top:4px">Todo: plantillas, flujos, historial completo y usuarios.</div></div>
+   <div><span class="chip ok">Editor</span><div class="muted" style="margin-top:4px">Crea y edita plantillas y flujos. No gestiona usuarios ni permisos.</div></div>
+   <div><span class="chip">Operador</span><div class="muted" style="margin-top:4px">Solo procesa documentos (genérico o por flujo) y ve resultados.</div></div></div></div></div>`;
+};
+V.usuarios.after=r=>{
+  const b=r.querySelector('#unew');if(!b)return;b.onclick=nuevoUsuario;
+  r.querySelectorAll('[data-ur]').forEach(s=>s.onchange=()=>{USR[+s.dataset.ur].rol=s.value;toast('Rol actualizado a '+s.value)});
+  r.querySelectorAll('[data-ua]').forEach(s=>s.onclick=()=>{const u=USR[+s.dataset.ua];u.act=!u.act;toast(u.act?'Usuario activado':'Usuario desactivado');render()});
+  r.querySelectorAll('[data-uk]').forEach(s=>s.onclick=()=>{const u=USR[+s.dataset.uk],k=genKey();u.key=k.slice(-4);mostrarKey(u.n,k);render()});
+};
+
+/* ---- plantillas: permisos y solo lectura ---- */
+function permisosCard(){
+  if(rk(ROL)<2)return '';
+  return `<div class="card" style="margin-bottom:16px"><div class="ch"><span>${ic('lock',14)} Permisos</span><span class="chip br">Solo Administrador</span></div><div class="cb"><label class="l">Rol mínimo para editar esta plantilla</label>
+   <select class="in" id="prm" style="max-width:260px">${ROLES.map(r=>`<option ${r===RMIN.planilla_servicio_electrico?'selected':''}>${r}</option>`).join('')}</select>
+   <div class="help">Quien tenga un rol inferior podrá ver la plantilla y usarla, pero no modificarla.</div></div></div>`;
+}
+const _ed=V.editar,_eda=V.editar.after;
+V.editar=()=>{
+  const lock=!puede(RMIN.planilla_servicio_electrico);
+  return (lock?`<div class="alert warn" style="margin-bottom:16px">${ic('lock',18)}<div><b>Solo lectura</b>Esta plantilla requiere el rol ${RMIN.planilla_servicio_electrico} o superior para editarse. Tu rol es ${ROL}.</div></div>`:'')
+   +`<div id="edwrap" class="${lock?'ro':''}">`+_ed().replace('<div><div class="card"><div class="ch">Historial de versiones</div>','<div>'+permisosCard()+'<div class="card"><div class="ch">Historial de versiones</div>')+'</div>';
+};
+V.editar.after=r=>{
+  _eda(r);
+  const s=r.querySelector('#prm');if(s)s.onchange=()=>{RMIN.planilla_servicio_electrico=s.value;toast('Rol mínimo para editar: '+s.value)};
+  if(r.querySelector('#edwrap.ro'))r.querySelectorAll('#edwrap input,#edwrap select,#edwrap textarea,#edwrap .sw,#edwrap .btn.pri').forEach(e=>e.disabled=true);
+};
+
+/* ---------- router ---------- */
+const NAV=[['procesar','#/','Procesar','upload',''],['documentos','#/documentos','Documentos','file',''],['plantillas','#/plantillas','Plantillas','layers',''],['flujos','#/flujos','Flujos de captura','link','Editor'],['usuarios','#/usuarios','Usuarios','users','Administrador']];
+function route(){
+  const h=(location.hash||'#/').slice(2).split('/');
+  if(h[0]==='')return {v:'procesar',n:'procesar'};
+  if(h[0]==='documentos')return h[1]?{v:'detalle',n:'documentos'}:{v:'documentos',n:'documentos'};
+  if(h[0]==='plantillas')return h[1]==='nueva'?{v:'nueva',a:h[2]||1,n:'plantillas'}:h[1]?{v:'editar',n:'plantillas'}:{v:'plantillas',n:'plantillas'};
+  if(h[0]==='flujos')return h[1]?{v:'flujo',a:h[1],n:'flujos'}:{v:'flujos',n:'flujos'};
+  if(h[0]==='captura'||h[0]==='procesar')return {v:'captura',a:h[1],n:'',solo:true};
+  if(h[0]==='usuarios')return {v:'usuarios',n:'usuarios'};
+  if(h[0]==='acceso')return {v:'acceso',n:''};
+  return {v:'procesar',n:'procesar'};
+}
+function demoBar(r){
+  const set=(arr,cur,fn)=>arr.map(([k,l])=>`<button class="${k===cur?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('');
+  if(r.v==='procesar')return `<b>Estado</b>`+set([['vacio','Vacío'],['procesando','Procesando'],['completado','Completado'],['desconocido','Desconocido'],['error','Error']],estadoProc,'setP');
+  if(r.v==='plantillas')return `<b>Estado</b>`+set([['datos','Con datos'],['vacio','Sin plantillas']],estadoPlant,'setL');
+  if(r.v==='captura')return `<b>Flujo</b>`+set([['alta_cliente_cedula','Cédula'],['regularizacion_servicios','Servicios'],['recepcion_contratos','Contratos']],CAP.flujo,'setCapF')+`<span class="sep"></span><b>Resultado</b>`+set([['ok','Correcto'],['nomatch','No coincide'],['error','Error']],CAP.escenario,'setCapE');
+  return `<b>Maqueta navegable</b>`;
+}
+window.setP=k=>{estadoProc=k;render()};window.setL=k=>{estadoPlant=k;render()};
+const _setCapE=window.setCapE;window.setCapE=k=>{_setCapE(k);render()};
+function render(){
+  const r=route(),sy=scrollY;
+  document.body.classList.toggle('solo',!!r.solo);
+  let sec=false;
+  $('#nav').innerHTML=NAV.filter(n=>!n[4]||puede(n[4])).map(n=>{
+    const h=n[4]&&!sec?(sec=true,'<div class="sec">Administración</div>'):'';
+    return h+`<a href="${n[1]}" class="${n[0]===r.n?'on':''}">${ic(n[3])}${n[2]}${n[0]==='plantillas'?'<span class="cnt">3</span>':n[0]==='documentos'?'<span class="cnt">214</span>':n[0]==='flujos'?'<span class="cnt">'+FLUJOS.length+'</span>':n[0]==='usuarios'?'<span class="cnt">'+USR.length+'</span>':''}</a>`}).join('');
+  const sel=$('#rol');if(sel&&sel.value!==ROL)sel.value=ROL;
+  const view=$('#view');view.innerHTML=V[r.v](r.a);
+  (V[r.v].after||(()=>{}))(view);
+  $('#demo').innerHTML=demoBar(r);
+  if(V._last===location.hash)scrollTo(0,sy);else scrollTo(0,0);V._last=location.hash;
+}
+$('#rol').onchange=e=>{ROL=e.target.value;render();toast('Ahora ves la maqueta como '+ROL)};
+addEventListener('hashchange',()=>{V._tab='res';render()});
+render();
+</script>
+</body>
+</html>
