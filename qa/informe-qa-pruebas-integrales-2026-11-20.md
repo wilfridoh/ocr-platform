@@ -263,7 +263,18 @@ Validado por QA: pytest 215/215, migración aplicada e idempotente, overlay de c
 
 ~4,6× más rápido en el caso aislado; la mejora se mantiene bajo concurrencia. Confirmado que un campo realmente ausente sigue disparando la segunda opinión (sin regresión de precisión), y que las confianzas de `planilla_servicio` y `cuenta_contrato` no cambiaron (sin efecto colateral del ajuste general de confianza). Documentos de prueba de esta validación, purgados.
 
-**Paso 1b (mismo día):** nueva variable `OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS` (default `true`): un campo opcional vacío (en cédula: `fecha_vencimiento`, `nacionalidad`, `sexo`) ya no dispara por sí solo la segunda opinión; un obligatorio vacío/dudoso, o cualquier campo con valor pero baja confianza, sí. Validado: con MI imagen original del §4 (que no trae fecha de vencimiento) `extraccion` bajó de ~16 s a **3 ms** con la variable en `true`; con `false` vuelve a ~15 s (comportamiento anterior intacto). Confirmado que un obligatorio ausente (`apellidos`) sigue disparando la segunda opinión, y que en `planilla_servicio`/`cuenta_contrato` el mismo patrón se sostiene (un opcional ausente no dispara; un obligatorio ausente sí, y de paso rescata los opcionales). No se identificó ningún campo marcado como opcional que convenga forzar siempre.
+**Paso 1b (mismo día):** nueva variable `OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS` (default `true`): un campo opcional vacío (en cédula: `fecha_vencimiento`, `nacionalidad`, `sexo`) ya no dispara por sí solo la segunda opinión; un obligatorio vacío/dudoso, o cualquier campo con valor pero baja confianza, sí. Validado primero con overlay (sin rebuild): con MI imagen original del §4 (que no trae fecha de vencimiento) `extraccion` bajó de ~16 s a **3 ms** con la variable en `true`; con `false` vuelve a ~15 s (comportamiento anterior intacto). Confirmado que un obligatorio ausente (`apellidos`) sigue disparando la segunda opinión, y que en `planilla_servicio`/`cuenta_contrato` el mismo patrón se sostiene (un opcional ausente no dispara; un obligatorio ausente sí, y de paso rescata los opcionales). No se identificó ningún campo marcado como opcional que convenga forzar siempre.
+
+**Desplegado en el stack real** (commit `3989d4e`, variable confirmada en `true` en el contenedor reconstruido). Medición final del total HTTP con la misma imagen del §4, contra el backend real:
+
+| Concurrencia | Antes (informe §4 original) | Después (desplegado) |
+|---|---|---|
+| 1 aislada | 14.856 ms | **5.254 ms** (primera llamada tras el rebuild; el resto más rápido aún) |
+| 1 concurrente | 14.380 ms | **2.596 ms** |
+| 4 concurrentes (promedio / peor) | 40.330 / 51.905 ms | **6.050 / 8.465 ms** |
+| 8 concurrentes (promedio / peor) | 57.091 / 74.976 ms | **11.827 / 19.146 ms** |
+
+Documento de medición purgado; BD y almacén de vuelta en 0 tras esta ronda.
 
 ## 13. Limpieza al cierre
 
