@@ -92,17 +92,21 @@ def test_etiqueta_combinada_con_error_de_ocr_en_la_etiqueta():
 
 
 def test_fecha_nacimiento_sin_etiqueta_legible_usa_la_fecha_que_no_es_de_vencimiento():
-    texto = "APELLIDOS\nPEREZ\nIl l I4A lNAr\nl6 OCT 1990\nFECHA DE VENCIMIENTO\n03 OCT 2036"
+    texto = "APELLIDOS\nPEREZ\nIl l I4A lNAr\n16 OCT 1990\nFECHA DE VENCIMIENTO\n03 OCT 2036"
     r = _extraer(texto)
-    assert r["fecha_nacimiento"].valor == "1990-10-16"  # "l6" es un 16 mal leído
+    assert r["fecha_nacimiento"].valor == "1990-10-16"
     assert r["fecha_nacimiento"].confianza < 0.7  # es una inferencia: queda para revisión
     assert r["fecha_vencimiento"].valor == "2036-10-03"
+    # con el día mal leído ("l6") ya no se adivina el 16: queda lo leído, no válido (ver test_cedula_fechas_nacionalidad)
+    r = _extraer(texto.replace("16 OCT", "l6 OCT"))
+    assert not r["fecha_nacimiento"].valido and r["fecha_nacimiento"].valor_texto == "l6 OCT 1990"
 
 
 def test_fecha_nacimiento_sin_etiqueta_no_inventa_con_fechas_futuras_o_de_vencimiento():
     assert _extraer("FECHA DE VENCIMIENTO\n03 OCT 2020")["fecha_nacimiento"].valor is None
     assert _extraer("APELLIDOS\nPEREZ\n03 OCT 2036")["fecha_nacimiento"].valor is None
-    assert _extraer("APELLIDOS\nPEREZ\n16 OCT 1290")["fecha_nacimiento"].valor is None  # año mal leído: no se adivina
+    f = _extraer("APELLIDOS\nPEREZ\n16 OCT 1290")["fecha_nacimiento"]
+    assert not f.valido and f.valor == "16 OCT 1290"  # año mal leído: no se adivina ni se da por fecha
 
 
 def test_numero_con_la_etiqueta_nui_mal_leida_por_el_ocr():

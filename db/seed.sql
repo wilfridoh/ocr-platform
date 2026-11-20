@@ -170,7 +170,7 @@ BEGIN
         (@VersionId, 'fecha_vencimiento', 'Fecha de vencimiento', 'fecha', 0, 'regex',
             N'{"metodo":"regex","regex":"(?i)(?:FECHA\\s+DE\\s+)?VENC\\w*\\s*:?(?:[^\\n]*\\n){0,4}?[^\\n]*?(\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}|\\d{1,2}\\s+[A-Za-z]{3,10}\\s+[A-Za-z]?\\d{3,4})"}', 5),
         (@VersionId, 'nacionalidad', 'Nacionalidad', 'texto', 0, 'regex',
-            N'{"metodo":"regex","regex":"(?i)(?:NACIONALIDAD\\s*:\\s*([A-Za-z\u00f1\u00d1]+)|\\b(ECUATORIAN[OA]|COLOMBIAN[OA]|PERUAN[OA]|VENEZOLAN[OA]|CHILEN[OA]|ARGENTIN[OA]|MEXICAN[OA]|BOLIVIAN[OA]|CUBAN[OA]|ESPA[\u00d1N]OL[A]?)\\b)"}', 6),
+            N'{"metodo":"regex","regex":"(?i)(?:NACIONALIDAD\\s*:\\s*([A-Za-z\u00f1\u00d1]+)|\\b(ECUATORIAN[OA]|COLOMBIAN[OA]|PERUAN[OA]|VENEZOLAN[OA]|CHILEN[OA]|ARGENTIN[OA]|MEXICAN[OA]|BOLIVIAN[OA]|CUBAN[OA]|ESPA[\u00d1N]OL[A]?)\\b)","catalogo":["ECUATORIANA","ECUATORIANO","COLOMBIANA","COLOMBIANO","PERUANA","PERUANO","VENEZOLANA","VENEZOLANO","CHILENA","CHILENO","ARGENTINA","ARGENTINO","MEXICANA","MEXICANO","BOLIVIANA","BOLIVIANO","CUBANA","CUBANO","ESPA\u00d1OLA","ESPA\u00d1OL"]}', 6),
         (@VersionId, 'sexo', 'Sexo', 'texto', 0, 'regex',
             N'{"metodo":"regex","regex":"(?i)(?:\\bSEXO\\s*:?\\s*([MF])\\b|\\b(HOMBRE|MUJER)\\b)"}', 7);
 

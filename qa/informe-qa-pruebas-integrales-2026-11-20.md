@@ -276,6 +276,27 @@ Validado por QA: pytest 215/215, migración aplicada e idempotente, overlay de c
 
 Documento de medición purgado; BD y almacén de vuelta en 0 tras esta ronda.
 
-## 13. Limpieza al cierre
+## 13. Nacionalidad tolerante + fechas plausibles en cédula (2026-11-20, mismo día)
+
+Desarrollo OCR cerró el hallazgo del documento `51C49BB4-A127-410F-9347-225B3E5C7989` (sin exponer datos personales): la nacionalidad quedaba vacía por un carácter mal leído en el gentilicio con etiqueta ilegible, y la fecha de nacimiento del respaldo "sin etiqueta" se guardaba como una fecha inventada (1920-10-10, edad 106) porque la segunda opinión "ganaba" por ser la única lectura con forma válida, aunque los dos motores no coincidían entre sí.
+
+**Cambios:**
+- `ReglaCampo.catalogo` (nuevo, genérico): una palabra leída a ≤1 carácter (Levenshtein, sin mayúsculas/tildes) de UN solo elemento del catálogo (7+ letras) se guarda en forma canónica; con 2+ errores o empate entre dos elementos, no se adivina. `db/migracion_008_cedula_nacionalidad_tolerante.sql` agrega el catálogo de gentilicios a `nacionalidad` de `cedula_identidad` (regex sin cambios).
+- Fechas fuera de rango plausible para el campo (nacimiento: hoy−120 a hoy; vencimiento/caducidad: 1900 a hoy+30; otras: 1900 a hoy+100), con el día solo legible cambiando letras por dígitos, o con conflicto de cifras/mes entre el motor principal y la segunda opinión: se guardan como leídas con `Valido=0` y advertencia, nunca como una fecha ISO inventada.
+- Un opcional cuyo valor ya es forma canónica del catálogo no dispara la segunda opinión aunque la confianza sea baja (conjunto cerrado: docTR no lo mejora).
+
+**Validado por QA:**
+1. **Unitarias:** pytest **252/252** (local, mismo número reportado por Desarrollo). Revisé `tests/test_cedula_fechas_nacionalidad.py` (nuevo): 10 variantes de gentilicio con 1 carácter mal leído → forma canónica con confianza ≥0.9 y sin disparar la segunda opinión; 5 casos de falsos positivos descartados (2+ errores, empate ECUATORIANX, palabras ajenas, gentilicio corto); 7 casos de fecha de nacimiento implausible (año imposible, >120 años, futura, día/mes inexistente) marcados no válidos con el valor leído intacto; fechas válidas (16 OCT 1990, ISO, dd/mm/aaaa) siguen aceptándose; el caso real reproducido con datos inventados (`PRINCIPAL`/`SEGUNDA`, cédula inclinada) confirma que la fecha no se inventa y la nacionalidad sí se rescata. Cambios intencionales en tests existentes (`l6 OCT 1990` ya no da 1990-10-16; `16 OCT 1290` queda no válida en vez de vacía) coherentes con el nuevo criterio.
+2. **Migración 008 vs. `seed.sql`:** confirmado byte a byte (regex y catálogo idénticos); aplicada a la BD real, idempotente (segunda corrida: `Reglas de campo actualizadas: 0`).
+3. **Regresión contra el stack real:** overlay de `modelos.py` y `extractor.py` en el contenedor en ejecución (sin rebuild) + restart; `/api/salud` 200. Subí 7 documentos sintéticos ya usados en rondas previas de regresión (`cedula_identidad_nitida`, `cedula_completa_7campos`, `cedula_sin_apellidos`, `cedula_ciudadania_partida`, `planilla_sin_direccion`, `planilla_nitida`, `cuenta_contrato_nitida`):
+   - Las 4 cédulas: `nacionalidad` = `ECUATORIANA` (confianza 0.996–0.999), `fecha_nacimiento` válida en las 4 (confianza 0.994–0.998), `fecha_vencimiento` válida donde el documento la trae. Sin advertencias nuevas ni fechas/nacionalidades marcadas erróneamente no válidas.
+   - `planilla_servicio` (2 variantes): `fecha_vencimiento` = `2026-12-30`, válida (dentro de hoy+30 años), confianza sin cambios (0.988/0.993).
+   - `cuenta_contrato`: `fecha_emision` ausente — comportamiento preexistente ya documentado en CLS-04 (§3.3): la imagen sintética no incluye ese campo en su texto fuente; no es una regresión de este cambio.
+4. No se pudo reprocesar el documento real `51C49BB4` en esta ronda porque el Líder aún no ha desplegado el fix (overlay ≠ rebuild, y el documento real no se usa como dato de prueba); queda pendiente repetirlo contra el backend ya reconstruido.
+5. Latencia: sin medición aparte en esta ronda — el cambio no toca el camino de disparo de la segunda opinión salvo por el punto "catálogo no dispara igual que antes", ya cubierto por la unitaria `test_gentilicio_corregido_con_poca_confianza_no_dispara_la_segunda_opinion` y por el caso real reproducido (sigue disparando 1 vez, por el número ausente, como antes).
+
+**Veredicto QA: aprobado para que el Líder lo despliegue.** Documentos de regresión purgados (`POST /api/purga`, alcance `todos`: 10 documentos, 10 archivos); BD y almacén confirmados en 0 tras esta ronda. Pendiente: repetir la verificación directa sobre `51C49BB4` después del rebuild real (punto 4).
+
+## 14. Limpieza al cierre
 
 Al terminar esta ronda: purgados los 70 documentos y 25 archivos generados durante la prueba (`POST /api/purga`, alcance `todos`); eliminados los usuarios de prueba (`QAInt Operador/Editor/Administrador`) y el flujo de prueba (`qa_int_flujo`) directamente en BD. Verificado: 0 documentos, 0 usuarios y 0 flujos con prefijo de QA, 0 archivos en `/data/archivos`. Las 3 plantillas, los 2 flujos de producción y los usuarios originales quedaron intactos.

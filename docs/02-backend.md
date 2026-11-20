@@ -190,8 +190,20 @@ score = suma(peso_i × presencia_i) / suma(peso_i)        # palabras clave, con 
 ### 4.5 Extracción
 Aplica cada campo de la plantilla ganadora con su método. La confianza del campo combina la confianza OCR media de las palabras usadas y si el validador del tipo de dato aceptó el valor.
 
+**Catálogo de valores** (`"catalogo": [...]` en la regla, opcional): lista de formas canónicas del campo (p. ej. los gentilicios de `nacionalidad` en la cédula, migración 008).
+- Si la regla encuentra un valor que coincide con un elemento, o está a **un** carácter de distancia (Levenshtein ≤ 1, sin distinguir mayúsculas ni tildes), el valor guardado es la forma canónica. Ejemplo: `LCUATORIANA` se guarda como `ECUATORIANA`. `ValorTexto` conserva lo que leyó el OCR.
+- Si la regla no encuentra nada, se busca en el texto la primera palabra que cumpla lo mismo.
+- La tolerancia de un carácter solo aplica a elementos de 7 letras o más; en palabras cortas, un carácter cambia la palabra.
+- Si la lectura queda a un carácter de dos elementos (`ECUATORIANX`), no se elige ninguno.
+
 ### 4.6 Validación y normalización
-- `fecha`: reconoce `dd/mm/yyyy`, `dd-mm-yy`, `12 de marzo de 2026`; devuelve ISO 8601.
+- `fecha`: reconoce `dd/mm/yyyy`, `dd-mm-yy`, `12 de marzo de 2026`, `03 NOV 1990`; devuelve ISO 8601. Una fecha inexistente (31/02) no es válida. Además, la lectura se marca **no válida** (advertencia `campo_no_valido`, o `campo_obligatorio_faltante` si el campo es obligatorio; nunca se guarda como fecha) cuando:
+  - **Está fuera del rango plausible del campo**, que se elige por el nombre o la etiqueta del campo:
+    - *nacimiento*: entre hoy − 120 años y hoy.
+    - *vencimiento/caducidad*: entre 1900 y hoy + 30 años.
+    - otras fechas: entre 1900 y hoy + 100 años.
+  - **Se infirió sin etiqueta y el día solo se entiende cambiando letras por dígitos.** Es el respaldo de la fecha de nacimiento cuando la etiqueta salió ilegible; por ejemplo, `1l.OCT 1990`. Se guarda tal como se leyó, sin adivinar el día.
+  - **Los dos motores la leen distinto.** El motor principal dejó una lectura no válida y la segunda opinión trae una fecha válida que la contradice: otro mes, o un dígito legible distinto. Las letras que solo pueden ser un dígito concreto (`l`/`I`→1, `O`→0, `S`→5…) cuentan como ese dígito; otra letra en esa posición no contradice nada. Por ejemplo, `1l.OCT 1320` frente a `10 OCT 1920`. Queda la lectura del principal, no válida, para revisión. Si en cambio la segunda opinión solo completa lo ilegible (`03 NOV d990` → `03 NOV 1990`), se acepta.
 - `monto`: elimina separadores de miles, detecta coma decimal; devuelve número.
 - `rut` / `cedula`: dígito verificador (RUT chileno módulo 11; otros formatos configurables).
 - Campos obligatorios ausentes → advertencia `campo_obligatorio_faltante`.

@@ -101,7 +101,7 @@ def test_nombres_y_apellidos_no_toman_encabezados_del_padre_o_madre():
     r = {c.nombre: c for c in extraer_campos(_campos("cedula_identidad"), [pagina])}
     assert r["nombres"].valor == "JUAN CARLOS"
     assert r["apellidos"].valor is None  # sin etiqueta propia: vacío (con advertencia), no el valor del padre
-    assert r["nacionalidad"].valor == "ECUATORiANA"
+    assert r["nacionalidad"].valor == "ECUATORIANA"  # forma canónica del catálogo (migración 008)
 
 
 def test_fecha_con_anio_de_tres_digitos_se_marca_invalida_sin_adivinar():
@@ -122,6 +122,7 @@ def test_migraciones_coinciden_con_el_seed_y_son_ascii():
         "migracion_004_cedula_ciudadania.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
         "migracion_006_cedula_robusta.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
         "migracion_007_cedula_nui_tolerante.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
+        "migracion_008_cedula_nacionalidad_tolerante.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
     }
     for nombre, patron in patrones.items():
         sql = (base / nombre).read_text(encoding="utf-8")

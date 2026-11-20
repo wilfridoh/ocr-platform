@@ -5,8 +5,11 @@ import logging
 import re
 import unicodedata
 from collections.abc import Callable
+from datetime import date
+from functools import lru_cache
 
 from rapidfuzz import fuzz
+from rapidfuzz.distance import Levenshtein
 
 from ..dominio.modelos import CampoExtraidoDTO, CampoPlantillaDTO, PaginaOCR, PalabraOCR
 from .validadores import validar_normalizar
@@ -334,25 +337,167 @@ _RE_CONTEXTO_OTRA_FECHA = re.compile(r"venc|emis|expedic|caduc")
 _DIGITO_CONFUNDIDO = str.maketrans({"l": "1", "I": "1", "|": "1", "O": "0"})
 
 
-def _fecha_nacimiento_sin_etiqueta(paginas: list[PaginaOCR]) -> tuple[str | None, int | None, float]:
+def _fecha_nacimiento_sin_etiqueta(paginas: list[PaginaOCR]) -> tuple[str | None, int | None, float, bool]:
     """Respaldo cuando la etiqueta "FECHA DE NACIMIENTO" salió ilegible: la primera fecha del documento que no esté
-    junto a "vencimiento/emisión" y que sea una fecha pasada plausible. Confianza reducida: es una inferencia."""
-    from datetime import date
+    junto a "vencimiento/emisión" y que no sea futura (esa es de vencimiento). Confianza reducida: es una inferencia.
 
+    Devuelve además si la lectura es DUDOSA: el día solo se entiende como número cambiando letras por dígitos
+    ("1l" -> "11"). Una lectura dudosa se devuelve tal como se leyó para que quede como "no legible" (y para
+    contrastarla con la segunda opinión), nunca como una fecha adivinada."""
     from .validadores import validar_fecha
 
+    hoy = date.today().isoformat()
     for pagina in paginas:
         for m in _RE_FECHA_SUELTA.finditer(pagina.texto):
             if _RE_CONTEXTO_OTRA_FECHA.search(_normaliza(pagina.texto[max(0, m.start() - 60) : m.start()])):
                 continue
-            texto = f"{m.group(1).translate(_DIGITO_CONFUNDIDO)} {m.group(2)} {m.group(3)}" if m.group(1) else m.group(0)
+            dudosa = False
+            if m.group(1):
+                dia = m.group(1).translate(_DIGITO_CONFUNDIDO)
+                dudosa = dia != m.group(1)
+                texto = f"{dia} {m.group(2)} {m.group(3)}"
+            else:
+                texto = m.group(0)
             iso, valido = validar_fecha(texto)
             if not valido or not iso:
                 continue
-            if not ("1900-01-01" <= iso <= date.today().isoformat()):
+            if iso > hoy:
                 continue  # una fecha futura es de vencimiento, no de nacimiento
-            return texto, pagina.numero, _confianza_region(pagina.palabras, m.group(0)) * 0.6
-    return None, None, 0.0
+            conf = _confianza_region(pagina.palabras, m.group(0)) * 0.6
+            return (m.group(0) if dudosa else texto), pagina.numero, conf, dudosa
+    return None, None, 0.0, False
+
+
+# ------------------------------------------------------------ fechas plausibles
+def _desplazar_anios(d: date, anios: int) -> date:
+    try:
+        return d.replace(year=d.year + anios)
+    except ValueError:  # 29 de febrero
+        return d.replace(year=d.year + anios, day=28)
+
+
+EDAD_MAXIMA = 120
+VIGENCIA_MAXIMA_ANIOS = 30
+
+
+def _rango_fecha(campo: CampoPlantillaDTO) -> tuple[date, date]:
+    """Rango en que una fecha leída es plausible para el campo (docs/02-backend.md §4.6). Fuera de él la lectura se
+    marca no válida en vez de guardar una fecha inventada (p. ej. "1320" por un año mal leído)."""
+    hoy = date.today()
+    nombre = _normaliza(f"{campo.nombre} {campo.etiqueta}")
+    if "nacimiento" in nombre:
+        return _desplazar_anios(hoy, -EDAD_MAXIMA), hoy
+    if "venc" in nombre or "caduc" in nombre:
+        return date(1900, 1, 1), _desplazar_anios(hoy, VIGENCIA_MAXIMA_ANIOS)
+    return date(1900, 1, 1), _desplazar_anios(hoy, 100)
+
+
+def _fecha_plausible(iso: str, campo: CampoPlantillaDTO) -> bool:
+    try:
+        d = date.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return False
+    desde, hasta = _rango_fecha(campo)
+    return desde <= d <= hasta
+
+
+# Letras que el OCR confunde con un dígito concreto. Otra letra en la posición de un dígito es ilegible (comodín).
+_LETRA_DIGITO = {
+    "l": "1", "I": "1", "i": "1", "|": "1", "!": "1", "O": "0", "o": "0", "D": "0", "Q": "0", "S": "5", "s": "5",
+    "B": "8", "Z": "2", "z": "2", "G": "6", "b": "6", "g": "9", "q": "9", "T": "7",
+}
+_C = r"[0-9A-Za-z|!]"
+_RE_PARTES_DMY = re.compile(rf"(?<![0-9A-Za-z])({_C}{{1,2}})[\s.,/-]{{1,3}}([A-Za-z]{{3,10}}|{_C}{{1,2}})[\s.,/-]{{1,3}}[A-Za-z]?({_C}{{3,4}})(?![0-9A-Za-z])")
+_RE_PARTES_ISO = re.compile(rf"(?<![0-9A-Za-z])({_C}{{4}})-({_C}{{1,2}})-({_C}{{1,2}})(?![0-9A-Za-z])")
+
+
+def _cifras_compatibles(leido: str, real: str) -> bool:
+    """¿Lo leído (con posibles letras por dígitos) puede ser `real`? Se compara alineado a la derecha."""
+    for c, r in zip(reversed(leido), reversed(real)):
+        if c.isdigit():
+            if c != r:
+                return False
+        elif c in _LETRA_DIGITO and _LETRA_DIGITO[c] != r:
+            return False
+    return True
+
+
+def _fechas_en_conflicto(leido: str | None, iso: str) -> bool:
+    """¿La lectura no válida del motor principal contradice la fecha (ISO) que leyó la segunda opinión? Hay conflicto
+    si algún dígito legible (o letra que solo puede ser un dígito concreto) es distinto, o el mes es otro. Si la
+    lectura principal no tiene forma de fecha, no hay con qué contrastar: no hay conflicto."""
+    from .validadores import _mes_aproximado
+
+    if not leido:
+        return False
+    try:
+        real = date.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return False
+    m = _RE_PARTES_DMY.search(leido)
+    if m:
+        dia, mes, anio = m.group(1), m.group(2), m.group(3)
+    else:
+        m = _RE_PARTES_ISO.search(leido)
+        if not m:
+            return False
+        anio, mes, dia = m.group(1), m.group(2), m.group(3)
+    mes_num = int(mes) if mes.isdigit() else (_mes_aproximado(mes) if mes.isalpha() and len(mes) >= 3 else None)
+    if mes_num is not None and mes_num != real.month:
+        return True
+    return not (_cifras_compatibles(dia, f"{real.day:02d}") and _cifras_compatibles(anio, f"{real.year:04d}"))
+
+
+# ------------------------------------------------------------ catálogo de valores
+_MIN_LARGO_DIFUSO = 7
+_RE_TOKEN = re.compile(r"[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ|!]+")
+
+
+def _clave_catalogo(s: str) -> str:
+    return _sin_acentos(s).upper()
+
+
+def _en_catalogo(valor: str, catalogo: list[str]) -> str | None:
+    """Forma canónica de `valor` si coincide con un elemento del catálogo o está a UN carácter de distancia de uno
+    solo de ellos ("LCUATORIANA" -> "ECUATORIANA"). Lo difuso solo vale para elementos de 7+ letras: en palabras
+    cortas un carácter cambia la palabra. Si queda a un carácter de dos elementos ("ECUATORIANX"), no se adivina."""
+    v = _clave_catalogo(valor.strip())
+    if not v:
+        return None
+    claves = _claves_catalogo(tuple(catalogo))
+    for c, k in claves:
+        if k == v:
+            return c
+    if len(v) < _MIN_LARGO_DIFUSO - 1:
+        return None
+    cercanos = [
+        c for c, k in claves
+        if len(k) >= _MIN_LARGO_DIFUSO and abs(len(k) - len(v)) <= 1 and Levenshtein.distance(v, k, score_cutoff=1) <= 1
+    ]
+    return cercanos[0] if len(cercanos) == 1 else None
+
+
+@lru_cache(maxsize=64)
+def _claves_catalogo(catalogo: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+    return tuple((c, _clave_catalogo(c)) for c in catalogo)
+
+
+def _canonico_seguro(campo: CampoPlantillaDTO, r: CampoExtraidoDTO) -> bool:
+    """¿El valor es una forma canónica del catálogo del campo? Es un conjunto cerrado: la segunda opinión no lo
+    mejora, así que un opcional así no la dispara aunque la palabra se haya leído con poca confianza."""
+    return bool(campo.regla.catalogo) and r.valido and r.valor in campo.regla.catalogo
+
+
+def _buscar_en_catalogo(
+    catalogo: list[str], paginas: list[PaginaOCR]
+) -> tuple[str | None, str | None, int | None, float]:
+    """Primera palabra del documento que corresponde a un elemento del catálogo: (leída, canónica, página, conf)."""
+    for pagina in paginas:
+        for m in _RE_TOKEN.finditer(pagina.texto):
+            canonico = _en_catalogo(m.group(), catalogo)
+            if canonico:
+                return m.group(), canonico, pagina.numero, _confianza_region(pagina.palabras, m.group())
+    return None, None, None, 0.0
 
 
 def extraer_campo(
@@ -368,10 +513,21 @@ def extraer_campo(
     else:
         valor_texto, pagina, conf_ocr = None, None, 0.0
 
+    dudosa = False
     if valor_texto is None and campo.tipo_dato == "fecha" and "nacimiento" in _normaliza(f"{campo.nombre} {campo.etiqueta}"):
-        valor_texto, pagina, conf_ocr = _fecha_nacimiento_sin_etiqueta(paginas)
+        valor_texto, pagina, conf_ocr, dudosa = _fecha_nacimiento_sin_etiqueta(paginas)
 
-    valor_norm, valido = validar_normalizar(campo.tipo_dato, valor_texto)
+    canonico = None
+    if campo.regla.catalogo:
+        if valor_texto is None:
+            valor_texto, canonico, pagina, conf_ocr = _buscar_en_catalogo(campo.regla.catalogo, paginas)
+        else:
+            canonico = _en_catalogo(valor_texto, campo.regla.catalogo)
+
+    # se valida la forma canónica si la hay; valor_texto conserva lo que leyó el OCR
+    valor_norm, valido = validar_normalizar(campo.tipo_dato, canonico or valor_texto)
+    if campo.tipo_dato == "fecha" and valido and (dudosa or not _fecha_plausible(valor_norm, campo)):
+        valido = False  # fecha imposible para el campo o leída a medias: "no legible", no una fecha inventada
     # confianza combinada: OCR de la región * (1.0 si el validador aceptó, penaliza si no)
     confianza = conf_ocr if valido else conf_ocr * 0.4
     if valor_texto is None:
@@ -401,13 +557,18 @@ def _otras_anclas(campo: CampoPlantillaDTO, campos: list[CampoPlantillaDTO]) -> 
     return tuple(otras)
 
 
-def _mejor(a: CampoExtraidoDTO, b: CampoExtraidoDTO) -> CampoExtraidoDTO:
+def _mejor(a: CampoExtraidoDTO, b: CampoExtraidoDTO, tipo_dato: str = "texto") -> CampoExtraidoDTO:
     """Elige entre la lectura del motor principal (a) y la de segunda opinión (b)."""
     if a.valor_texto is None:
         return b if b.valor_texto is not None else a
     if b.valor_texto is None:
         return a
     if a.valido != b.valido:
+        if b.valido and tipo_dato == "fecha" and _fechas_en_conflicto(a.valor_texto, b.valor):
+            # los dos motores leyeron cifras distintas en la misma fecha ("1l.OCT 1320" frente a "10 OCT 1920"):
+            # ninguna lectura es confiable; queda la del principal, marcada no válida, para revisión
+            logger.info("Fecha en conflicto entre motores (%r / %r): queda no legible", a.valor_texto, b.valor_texto)
+            return a
         return a if a.valido else b
     if a.valor == b.valor:
         # Ambos motores coinciden: validación cruzada, se conserva la mayor confianza.
@@ -435,7 +596,11 @@ def extraer_campos(
         return resultados
     pendientes = [i for i, r in enumerate(resultados) if r.confianza < umbral_segunda_opinion]
     if solo_obligatorios:
-        disparan = [i for i in pendientes if campos[i].obligatorio or resultados[i].valor is not None or resultados[i].valor_texto]
+        disparan = [
+            i for i in pendientes
+            if campos[i].obligatorio
+            or ((resultados[i].valor is not None or resultados[i].valor_texto) and not _canonico_seguro(campos[i], resultados[i]))
+        ]
     else:
         disparan = pendientes
     if not disparan:
@@ -445,7 +610,7 @@ def extraer_campos(
         return resultados
     for i in pendientes:
         alternativo = extraer_campo(campos[i], alt, _otras_anclas(campos[i], campos))
-        elegido = _mejor(resultados[i], alternativo)
+        elegido = _mejor(resultados[i], alternativo, campos[i].tipo_dato)
         if elegido is alternativo:
             logger.info(
                 "Campo '%s': segunda opinión mejora la lectura (%r -> %r)",

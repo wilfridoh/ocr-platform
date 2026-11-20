@@ -51,6 +51,9 @@ class ReglaCampo(BaseModel):
     flags: Optional[str] = None  # p. ej. "i" para ignorar mayúsculas
     misma_linea: bool = True  # ancla: buscar en la misma línea; si no hay, la siguiente
     lineas: int = 1  # ancla con el valor en las líneas siguientes: cuántas líneas unir (p. ej. 2 apellidos en 2 líneas)
+    # valores canónicos del campo (p. ej. gentilicios): una lectura a 1 carácter de distancia de uno de ellos se
+    # guarda en su forma canónica, y si la regla no encuentra nada se busca en el texto una palabra así (docs/02 §4.5)
+    catalogo: Optional[list[str]] = None
 
     @field_validator("regex")
     @classmethod
