@@ -9,6 +9,8 @@ Dos detalles que importan:
     ningún documento que se conserve lo usa.
   * Una plantilla puede tener un documento de ejemplo (PlantillaVersion.DocumentoEjemploId): al purgarlo, la
     referencia pasa a NULL (la plantilla y sus reglas se conservan).
+  * Archivos huérfanos (en el almacén pero sin registro, p. ej. por un corte entre guardar el archivo y crear el
+    documento): también se eliminan cuando su fecha supera el plazo (`vencidos`: la retención; `todos`: una hora).
 """
 from __future__ import annotations
 
@@ -84,6 +86,25 @@ def _rutas_que_se_conservan(db: Session, rutas: set[str], ids_purga: set[str]) -
     return conservadas
 
 
+def _huerfanos(
+    db: Session, almacen: AlmacenDisco, alcance: Alcance, retencion_dias: int, ahora: datetime | None
+) -> dict[str, int]:
+    """Archivos del almacén que NINGÚN documento referencia (ruta -> bytes) y que ya cumplieron el plazo del alcance.
+
+    Aparecen si el proceso se interrumpe entre guardar el archivo y crear su registro. Son documentos subidos por
+    personas: la retención también los cubre. El plazo se mide por la fecha del archivo: en `vencidos`, la retención;
+    en `todos`, una hora (un archivo recién guardado puede ser de una subida cuyo registro aún no se confirma).
+    """
+    momento = ahora or datetime.now(timezone.utc)
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=timezone.utc)
+    margen = timedelta(hours=1) if alcance == "todos" else timedelta(days=retencion_dias)
+    candidatos = dict(almacen.listar(modificados_antes_de=(momento - margen).timestamp()))
+    for ruta in _rutas_que_se_conservan(db, set(candidatos), set()):
+        candidatos.pop(ruta, None)
+    return candidatos
+
+
 def vista_previa(
     db: Session, almacen: AlmacenDisco, alcance: Alcance, retencion_dias: int, ahora: datetime | None = None
 ) -> ResumenPurga:
@@ -92,7 +113,12 @@ def vista_previa(
     ids = {i for i, _ in sel}
     rutas = {r for _, r in sel}
     liberadas = rutas - _rutas_que_se_conservan(db, rutas, ids)
-    return ResumenPurga(documentos=len(ids), archivos=len(liberadas), bytes=sum(almacen.tamano(r) for r in liberadas))
+    huerfanos = _huerfanos(db, almacen, alcance, retencion_dias, ahora)  # sin documento: no se solapan con `liberadas`
+    return ResumenPurga(
+        documentos=len(ids),
+        archivos=len(liberadas) + len(huerfanos),
+        bytes=sum(almacen.tamano(r) for r in liberadas) + sum(huerfanos.values()),
+    )
 
 
 def purgar(
@@ -128,6 +154,15 @@ def purgar(
                 resumen.bytes += tamano
         except OSError:
             logger.exception("No se pudo borrar el archivo %s (queda huérfano; no afecta a la BD)", ruta)
+
+    # 3) archivos huérfanos (sin registro en la BD) que ya cumplieron el plazo; incluye los que fallaron arriba antes
+    for ruta, tamano in sorted(_huerfanos(db, almacen, alcance, retencion_dias, ahora).items()):
+        try:
+            if almacen.eliminar(ruta):
+                resumen.archivos += 1
+                resumen.bytes += tamano
+        except (OSError, ValueError):
+            logger.exception("No se pudo borrar el archivo huérfano %s", ruta)
     logger.warning(
         "Purga de documentos (%s, retención %s días): %d documentos, %d archivos, %d bytes",
         alcance, retencion_dias, resumen.documentos, resumen.archivos, resumen.bytes,

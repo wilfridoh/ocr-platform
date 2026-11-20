@@ -1,6 +1,7 @@
 """Almacén de archivos en disco. Guarda por hash para deduplicar y evitar colisiones."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -18,7 +19,28 @@ class AlmacenDisco:
         ruta = carpeta / nombre
         if not ruta.exists():
             ruta.write_bytes(datos)
+        else:
+            # mismo contenido que ya estaba: se renueva su fecha para que la limpieza de huérfanos de la purga
+            # no lo tome por un resto viejo mientras se crea el registro de esta subida
+            try:
+                os.utime(ruta, None)
+            except OSError:
+                pass
         return f"{subcarpeta}/{nombre}"
+
+    def listar(self, modificados_antes_de: float | None = None) -> list[tuple[str, int]]:
+        """(ruta relativa, bytes) de cada archivo del almacén; con límite, solo los modificados antes (epoch)."""
+        archivos: list[tuple[str, int]] = []
+        for ruta in self.raiz.glob("*/*"):
+            try:
+                if not ruta.is_file():
+                    continue
+                info = ruta.stat()
+            except OSError:
+                continue  # lo borraron mientras se listaba
+            if modificados_antes_de is None or info.st_mtime < modificados_antes_de:
+                archivos.append((ruta.relative_to(self.raiz).as_posix(), info.st_size))
+        return archivos
 
     def leer(self, ruta_relativa: str) -> bytes:
         return (self.raiz / ruta_relativa).read_bytes()

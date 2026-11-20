@@ -151,6 +151,64 @@ def test_el_almacen_no_borra_fuera_de_su_raiz(almacen, tmp_path):
     assert fuera.exists()
 
 
+# ------------------------------------------------------------------ archivos huérfanos (hallazgo de QA)
+def _huerfano(almacen, nombre: str, dias: float) -> str:
+    """Archivo en el almacén SIN documento (corte entre guardar y crear el registro), con fecha de hace `dias` días."""
+    import hashlib
+    import os
+    import time
+
+    datos = nombre.encode() * 7
+    ruta = almacen.guardar(hashlib.sha256(datos).hexdigest(), "png", datos)
+    marca = time.time() - dias * 86400
+    os.utime(almacen.ruta_absoluta(ruta), (marca, marca))
+    return ruta
+
+
+def test_vencidos_borra_huerfanos_que_pasan_el_plazo_y_respeta_los_recientes(db, almacen):
+    viejo = _huerfano(almacen, "huerfano-viejo", 40)
+    reciente = _huerfano(almacen, "huerfano-reciente", 5)
+    con_documento = _doc(db, almacen, "nuevo.png", 1)
+    vp = cmd.vista_previa(db, almacen, "vencidos", 30)
+    assert (vp.documentos, vp.archivos) == (0, 1) and vp.bytes == len(b"huerfano-viejo" * 7)
+    assert almacen.ruta_absoluta(viejo).exists()  # la vista previa no borra
+    r = cmd.purgar(db, almacen, "vencidos", 30)
+    assert (r.documentos, r.archivos, r.bytes) == (0, 1, len(b"huerfano-viejo" * 7))
+    assert not almacen.ruta_absoluta(viejo).exists()
+    assert almacen.ruta_absoluta(reciente).exists() and almacen.ruta_absoluta(con_documento.RutaAlmacen).exists()
+
+
+def test_todos_borra_huerfanos_salvo_los_de_la_ultima_hora(db, almacen):
+    _doc(db, almacen, "uno.png", 3)
+    viejo = _huerfano(almacen, "huerfano", 2)
+    recien_guardado = _huerfano(almacen, "subida-en-curso", 0)  # puede ser una subida cuyo registro aún no existe
+    r = cmd.purgar(db, almacen, "todos", 30)
+    assert (r.documentos, r.archivos) == (1, 2)
+    assert not almacen.ruta_absoluta(viejo).exists() and almacen.ruta_absoluta(recien_guardado).exists()
+
+
+def test_un_archivo_viejo_con_documento_no_es_huerfano(db, almacen):
+    import os
+    import time
+
+    d = _doc(db, almacen, "vigente.png", 1)
+    marca = time.time() - 90 * 86400  # archivo antiguo, pero un documento vigente lo usa
+    os.utime(almacen.ruta_absoluta(d.RutaAlmacen), (marca, marca))
+    assert cmd.purgar(db, almacen, "vencidos", 30).archivos == 0
+    assert almacen.ruta_absoluta(d.RutaAlmacen).exists()
+
+
+def test_volver_a_guardar_un_archivo_existente_renueva_su_fecha(almacen):
+    import hashlib
+    import time
+
+    ruta = _huerfano(almacen, "resubido", 40)
+    datos = b"resubido" * 7
+    assert almacen.guardar(hashlib.sha256(datos).hexdigest(), "png", datos) == ruta
+    assert time.time() - almacen.ruta_absoluta(ruta).stat().st_mtime < 60  # ya no parece un resto viejo
+    assert almacen.listar(modificados_antes_de=time.time() - 3600) == []
+
+
 # ------------------------------------------------------------------ API (solo Administrador)
 def _doc_api(almacen_ruta: str, nombre: str, dias: int) -> str:
     db = next(app.dependency_overrides[dependencias.get_db]())
