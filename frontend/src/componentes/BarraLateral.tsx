@@ -29,7 +29,7 @@ const claseEnlace = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-side-on text-white' : 'text-side-ink hover:bg-[#1E293B] hover:text-white'
   }`
 
-export default function BarraLateral() {
+export default function BarraLateral({ abierto = false, onCerrar }: { abierto?: boolean; onCerrar?: () => void }) {
   const { data, isError, isPending } = useQuery({
     queryKey: ['salud'],
     queryFn: () => api.salud(),
@@ -42,7 +42,14 @@ export default function BarraLateral() {
   const visibles = (lista: Enlace[]) => lista.filter((e) => !e.rol || puede(e.rol))
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[232px] flex-none flex-col bg-side">
+    <>
+      {/* Fondo oscuro detrás del cajón (solo móvil) */}
+      {abierto && <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onCerrar} aria-hidden />}
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-none flex-col overflow-y-auto bg-side transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:w-[232px] md:translate-x-0 ${
+        abierto ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
       <div className="flex items-center gap-2.5 px-4 py-5">
         <div
           className="grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-white"
@@ -97,5 +104,6 @@ export default function BarraLateral() {
         </div>
       </div>
     </aside>
+    </>
   )
 }

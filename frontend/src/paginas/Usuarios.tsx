@@ -6,6 +6,7 @@ import CargandoIndicador from '@/componentes/CargandoIndicador'
 import MensajeError from '@/componentes/MensajeError'
 import SinPermiso from '@/componentes/SinPermiso'
 import Interruptor from '@/componentes/Interruptor'
+import DialogoConfirmar from '@/componentes/DialogoConfirmar'
 import { Icono } from '@/componentes/Iconos'
 import { formatearFecha } from '@/utilidades/formato'
 import { useYo } from '@/utilidades/useYo'
@@ -26,6 +27,7 @@ export default function Usuarios() {
   const [rolNuevo, setRolNuevo] = useState<Rol>('Operador')
   const [clave, setClave] = useState<UsuarioConClave | null>(null)
   const [copiada, setCopiada] = useState(false)
+  const [aRegenerar, setARegenerar] = useState<Usuario | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['usuarios'],
@@ -79,6 +81,17 @@ export default function Usuarios() {
 
   return (
     <div>
+      <DialogoConfirmar
+        abierto={aRegenerar !== null}
+        titulo="Generar una API key nueva"
+        mensaje={`¿Generar una API key nueva para ${aRegenerar?.nombre ?? ''}? La anterior dejará de funcionar de inmediato.`}
+        confirmar="Generar"
+        onConfirmar={() => {
+          if (aRegenerar) regenerar.mutate(aRegenerar.id)
+          setARegenerar(null)
+        }}
+        onCancelar={() => setARegenerar(null)}
+      />
       <div className="mb-4">
         <h2 className="text-[22px] font-bold tracking-[-0.01em] text-ink">Usuarios</h2>
         <p className="text-sm text-ink-3">Cada persona o sistema entra con su propia API key y un rol.</p>
@@ -203,9 +216,7 @@ export default function Usuarios() {
                       type="button"
                       className="inline-flex items-center gap-1 whitespace-nowrap text-brand hover:underline disabled:text-ink-3"
                       disabled={regenerar.isPending}
-                      onClick={() => {
-                        if (window.confirm(`¿Generar una API key nueva para ${u.nombre}? La anterior dejará de funcionar de inmediato.`)) regenerar.mutate(u.id)
-                      }}
+                      onClick={() => setARegenerar(u)}
                     >
                       <Icono nombre="refrescar" tamano={14} /> Generar nueva
                     </button>

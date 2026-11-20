@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import MensajeError from './MensajeError'
+import DialogoConfirmar from './DialogoConfirmar'
 import { Icono } from './Iconos'
 import { formatearTamano } from '@/utilidades/formato'
 
@@ -25,27 +26,35 @@ export default function PanelPurga({ onCerrar }: { onCerrar: () => void }) {
     },
   })
 
-  const eliminarVencidos = () => {
-    if (!v) return
-    if (window.confirm(`¿Eliminar ${v.vencidos.documentos} documento(s) con más de ${v.retencion_dias} días? No se puede deshacer.`)) {
-      setResultado(null)
-      purgar.mutate('vencidos')
-    }
-  }
+  const [pendiente, setPendiente] = useState<'vencidos' | 'todos' | null>(null)
 
-  const eliminarTodos = () => {
-    if (!v) return
-    const respuesta = window.prompt(
-      `Vas a eliminar TODOS los documentos (${v.todos.documentos}) con sus datos extraídos y archivos originales. No se puede deshacer.\n\nEscribe ELIMINAR para confirmar:`,
-    )
-    if (respuesta?.trim() === 'ELIMINAR') {
-      setResultado(null)
-      purgar.mutate('todos')
-    }
+  const confirmarPurga = () => {
+    if (!pendiente) return
+    setResultado(null)
+    purgar.mutate(pendiente)
+    setPendiente(null)
   }
+  const eliminarVencidos = () => v && setPendiente('vencidos')
+  const eliminarTodos = () => v && setPendiente('todos')
 
   return (
     <div className="tarjeta mb-4" role="region" aria-label="Retención y purga de documentos">
+      <DialogoConfirmar
+        abierto={pendiente !== null}
+        peligro
+        titulo={pendiente === 'todos' ? 'Eliminar TODOS los documentos' : 'Eliminar documentos vencidos'}
+        mensaje={
+          !v
+            ? ''
+            : pendiente === 'todos'
+              ? `Vas a eliminar TODOS los documentos (${v.todos.documentos}) con sus datos extraídos y archivos originales. No se puede deshacer.`
+              : `¿Eliminar ${v.vencidos.documentos} documento(s) con más de ${v.retencion_dias} días? No se puede deshacer.`
+        }
+        palabraClave={pendiente === 'todos' ? 'ELIMINAR' : undefined}
+        confirmar="Eliminar"
+        onConfirmar={confirmarPurga}
+        onCancelar={() => setPendiente(null)}
+      />
       <div className="flex items-center justify-between border-b border-line px-4 py-3 text-[13px] font-semibold">
         <span className="flex items-center gap-2">
           <Icono nombre="candado" tamano={14} /> Retención y purga de documentos

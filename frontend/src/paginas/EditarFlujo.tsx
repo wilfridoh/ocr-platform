@@ -7,6 +7,7 @@ import CargandoIndicador from '@/componentes/CargandoIndicador'
 import MensajeError from '@/componentes/MensajeError'
 import SinPermiso from '@/componentes/SinPermiso'
 import Interruptor from '@/componentes/Interruptor'
+import DialogoConfirmar from '@/componentes/DialogoConfirmar'
 import { rolMayor } from '@/utilidades/roles'
 import { useYo } from '@/utilidades/useYo'
 
@@ -21,6 +22,7 @@ export default function EditarFlujo() {
   const queryClient = useQueryClient()
   const { yo, rol, cargando: cargandoRol, puede } = useYo()
   const [urlCopiada, setUrlCopiada] = useState(false)
+  const [confirmaPublico, setConfirmaPublico] = useState(false)
 
   const flujosQuery = useQuery({ queryKey: ['flujos', 'todos'], queryFn: () => api.listarFlujos(true), enabled: !esNuevo && puede('Editor') })
   const plantillasQuery = useQuery({ queryKey: ['plantillas'], queryFn: () => api.listarPlantillas(), enabled: puede('Editor') })
@@ -101,6 +103,18 @@ export default function EditarFlujo() {
 
   return (
     <form onSubmit={enviar} noValidate>
+      <DialogoConfirmar
+        abierto={confirmaPublico}
+        peligro
+        titulo="Abrir este flujo al público"
+        mensaje="Cualquier persona con el enlace podrá subir documentos SIN clave, y los datos personales que contengan se guardarán. ¿Continuar?"
+        confirmar="Abrir al público"
+        onConfirmar={() => {
+          setConfirmaPublico(false)
+          accesoPublico.mutate(true)
+        }}
+        onCancelar={() => setConfirmaPublico(false)}
+      />
       <div className="mb-4">
         <Link to="/flujos-captura" className="text-sm text-brand hover:underline">
           ← Volver a flujos de captura
@@ -235,13 +249,8 @@ export default function EditarFlujo() {
                     etiqueta="Permitir subir documentos sin clave"
                     deshabilitado={accesoPublico.isPending}
                     onCambio={(nuevo) => {
-                      if (
-                        !nuevo ||
-                        window.confirm(
-                          'Vas a abrir este flujo al público: cualquier persona con el enlace podrá subir documentos SIN clave y los datos personales que contengan se guardarán. ¿Continuar?',
-                        )
-                      )
-                        accesoPublico.mutate(nuevo)
+                      if (nuevo) setConfirmaPublico(true)
+                      else accesoPublico.mutate(false)
                     }}
                   />
                 </div>
