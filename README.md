@@ -46,6 +46,7 @@ Todo corre en contenedores Docker (`docker compose up`), primero local y luego e
 | [docs/08-checklist-levantamiento-y-poc.md](docs/08-checklist-levantamiento-y-poc.md) | Cualquier persona | Checklist mínimo para levantar cada parte y qué falta para una prueba de concepto demostrable |
 | [qa/informe-qa-backend-ocr.md](qa/informe-qa-backend-ocr.md) | Cualquier persona | Informe de QA del backend: cobertura de tests, bugs reales encontrados (motor OCR, fechas, montos) |
 | [qa/informe-qa-poc-e2e.md](qa/informe-qa-poc-e2e.md) | Cualquier persona | PoC end-to-end validada sobre el stack real: UI, MCP, SQL Server, documentos reales de tipo desconocido |
+| [qa/informe-qa-pruebas-integrales-2026-11-20.md](qa/informe-qa-pruebas-integrales-2026-11-20.md) | Cualquier persona | QA integral (61 escenarios): ingesta, OCR/preprocesado, clasificación, extracción, flujos, roles, límites, rendimiento y purga de huérfanos — 1 bug real encontrado y reportado |
 | [docs/09-guia-visual-frontend.md](docs/09-guia-visual-frontend.md) | Frontend / UX | Paleta, tipografía y patrones de componentes de la maqueta, para que el frontend real los adopte |
 | [docs/10-handoff.md](docs/10-handoff.md) | Quien continúe el proyecto | Cómo levantar, orden de migraciones SQL, qué está validado y cómo, pendientes priorizados y trampas conocidas |
 
