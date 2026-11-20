@@ -258,6 +258,7 @@ Transporte: `stdio` para uso local desde Claude Desktop / Claude Code, y `stream
 | `OCR_MOTOR` | `paddle` (default) / `doctr` / `tesseract` | Motor principal |
 | `OCR_SEGUNDA_OPINION` | `doctr` / `ninguno` | Motor usado para validación cruzada en campos de baja confianza |
 | `OCR_UMBRAL_SEGUNDA_OPINION` | `0.7` | Confianza mínima de un campo antes de pedir segunda opinión |
+| `OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS` | `true` | La segunda opinión es lenta (~13 s por página). Con `true`, un campo **no obligatorio y vacío** no la dispara por sí solo (muchas variantes de un documento no traen todos los opcionales, p. ej. una cédula sin fecha de vencimiento); la disparan los obligatorios vacíos o bajo el umbral y cualquier campo con valor bajo el umbral, y entonces también se reintentan los opcionales vacíos. Con `false`, cualquier campo bajo el umbral la dispara (comportamiento anterior) |
 | `OCR_IDIOMA` | `spa` | Idioma (Tesseract; PaddleOCR/docTR usan su modelo latino) |
 | `OCR_DPI` | `300` | Resolución al rasterizar PDF |
 | `ALMACEN_RUTA` | `/data/archivos` | Carpeta de archivos |

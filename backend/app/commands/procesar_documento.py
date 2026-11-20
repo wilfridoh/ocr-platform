@@ -138,6 +138,7 @@ def _procesar_documento(
                 paginas,
                 proveedor_segunda_opinion(doc_ingresado, settings, motor_usado),
                 settings.OCR_UMBRAL_SEGUNDA_OPINION,
+                settings.OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS,
             )
         tiempos["extraccion"] = int((time.perf_counter() - t0) * 1000)
 

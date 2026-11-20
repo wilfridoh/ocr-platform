@@ -98,6 +98,7 @@ def _reprocesar_sobre_documento(db, almacen, settings, documento, datos, plantil
                 paginas,
                 proveedor_segunda_opinion(doc_ing, settings, motor_usado),
                 settings.OCR_UMBRAL_SEGUNDA_OPINION,
+                settings.OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS,
             )
         tiempos["extraccion"] = int((time.perf_counter() - t0) * 1000)
         tiempos["total"] = int((time.perf_counter() - t_total) * 1000)

@@ -134,6 +134,52 @@ def test_cedula_bien_leida_no_pide_segunda_opinion():
     assert llamadas == [1]
 
 
+def _extraer_contando(texto: str, solo_obligatorios: bool, alternativa: str | None = None):
+    """Extrae con una segunda opinión simulada; devuelve (campos por nombre, veces que se pidió)."""
+    llamadas = []
+
+    def segunda_opinion():
+        llamadas.append(1)
+        return [_pagina_con_palabras(alternativa)] if alternativa else None
+
+    campos = extraer_campos(_campos("cedula_identidad"), [_pagina_con_palabras(texto)], segunda_opinion, 0.7, solo_obligatorios)
+    return {c.nombre: c for c in campos}, len(llamadas)
+
+
+SIN_VENCIMIENTO = TEXTO_CEDULA_NUEVA.replace("FECHA DE VENCIMIENTO\n", "").replace("03 OCT 2036\n", "")
+
+
+def test_opcional_vacio_no_dispara_la_segunda_opinion_por_si_solo():
+    # cédula que no trae fecha de vencimiento impresa (campo opcional): todo lo demás se leyó bien
+    r, llamadas = _extraer_contando(SIN_VENCIMIENTO, solo_obligatorios=True)
+    assert llamadas == 0 and r["fecha_vencimiento"].valor is None and r["apellidos"].valor == "PEREZ SOTO"
+    # con la variable apagada: comportamiento anterior, cualquier campo bajo el umbral la dispara
+    assert _extraer_contando(SIN_VENCIMIENTO, solo_obligatorios=False)[1] == 1
+    # por defecto en la configuración queda activada; el extractor por sí solo conserva el comportamiento anterior
+    from app.config import Settings
+
+    assert Settings.model_fields["OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS"].default is True
+
+
+def test_obligatorio_vacio_dispara_y_entonces_tambien_se_reintentan_los_opcionales():
+    sin_apellidos = SIN_VENCIMIENTO.replace("APELLIDOS\nCONDICION CIUDADANIA\nPEREZ\nSOTO\n", "")
+    r, llamadas = _extraer_contando(sin_apellidos, solo_obligatorios=True, alternativa=TEXTO_CEDULA_NUEVA)
+    assert llamadas == 1
+    assert r["apellidos"].valor == "PEREZ SOTO"  # obligatorio rescatado por el segundo motor
+    assert r["fecha_vencimiento"].valor == "2036-10-03"  # opcional vacío: se relee ya que el motor entró
+
+
+def test_campo_con_valor_dudoso_dispara_aunque_sea_opcional():
+    pagina = _pagina_con_palabras(TEXTO_CEDULA_NUEVA)
+    for p in pagina.palabras:
+        if p.texto in ("03", "2036"):
+            p.confianza = 0.3  # fecha de vencimiento (opcional) leída, pero con poca confianza
+    llamadas = []
+    campos = extraer_campos(_campos("cedula_identidad"), [pagina], lambda: llamadas.append(1), 0.7, True)
+    vencimiento = next(c for c in campos if c.nombre == "fecha_vencimiento")
+    assert vencimiento.valor == "2036-10-03" and vencimiento.confianza < 0.7 and llamadas == [1]
+
+
 def test_campo_sin_valor_no_toma_el_valor_del_campo_siguiente():
     # hallazgo de QA: la etiqueta de OTRO campo corta la búsqueda; no se salta como si fuera ruido
     assert _extraer("APELLIDOS\nFECHA DE NACIMIENTO\n16 OCT 1990")["apellidos"].valor is None

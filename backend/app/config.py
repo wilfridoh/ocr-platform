@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Segunda opinión (validación cruzada) para campos de baja confianza: "doctr" / "ninguno"
     OCR_SEGUNDA_OPINION: str = "doctr"
     OCR_UMBRAL_SEGUNDA_OPINION: float = 0.7
+    # Un campo NO obligatorio y vacío no dispara por sí solo la segunda opinión (es lenta, ~13 s por página): muchas
+    # variantes de un documento no traen todos los opcionales. false = cualquier campo bajo el umbral la dispara.
+    OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS: bool = True
     # Tope de lecturas OCR simultáneas (cada una es CPU-intensiva; el resto espera en cola)
     OCR_MAX_CONCURRENTES: int = 2
     # Tiempo máximo (s) de una lectura de segunda opinión; al vencer se conserva el motor principal

@@ -19,10 +19,13 @@ def _campos(codigo: str) -> list[CampoPlantillaDTO]:
     ini = SEED.index("INSERT INTO dbo.CampoPlantilla", ini)
     fin = SEED.index("UPDATE dbo.Plantilla SET VersionActualId", ini)
     campos = []
-    patron = re.compile(r"\(@VersionId, '(\w+)', '[^']*', '(\w+)', \d, '\w+',\s*N'(\{.*?\})', \d+\)", re.S)
-    for nombre, tipo, regla in patron.findall(SEED[ini:fin]):
+    patron = re.compile(r"\(@VersionId, '(\w+)', '[^']*', '(\w+)', (\d), '\w+',\s*N'(\{.*?\})', \d+\)", re.S)
+    for nombre, tipo, obligatorio, regla in patron.findall(SEED[ini:fin]):
         campos.append(
-            CampoPlantillaDTO(nombre=nombre, etiqueta=nombre, tipo_dato=tipo, regla=ReglaCampo(**json.loads(regla)))
+            CampoPlantillaDTO(
+                nombre=nombre, etiqueta=nombre, tipo_dato=tipo, obligatorio=obligatorio == "1",
+                regla=ReglaCampo(**json.loads(regla)),
+            )
         )
     return campos
 

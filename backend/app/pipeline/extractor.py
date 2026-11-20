@@ -420,15 +420,25 @@ def extraer_campos(
     paginas: list[PaginaOCR],
     segunda_opinion: Callable[[], list[PaginaOCR] | None] | None = None,
     umbral_segunda_opinion: float = 0.7,
+    solo_obligatorios: bool = False,
 ) -> list[CampoExtraidoDTO]:
     """Extrae todos los campos. Si se entrega `segunda_opinion` (callable perezoso que relee el
     documento con otro motor), los campos con confianza < umbral se reextraen con él y se
-    conserva la mejor lectura. El callable solo se invoca si hay al menos un campo bajo umbral."""
+    conserva la mejor lectura. El callable solo se invoca si hay al menos un campo bajo umbral.
+
+    Con `solo_obligatorios`, un campo NO obligatorio y vacío no dispara la relectura por sí solo: muchas variantes
+    de un documento no traen impresos todos los opcionales (p. ej. una cédula sin fecha de vencimiento) y pagarían
+    siempre la segunda opinión, que es lenta. Si la relectura entra por otro campo, los opcionales vacíos también
+    se reintentan."""
     resultados = [extraer_campo(c, paginas, _otras_anclas(c, campos)) for c in campos]
     if segunda_opinion is None:
         return resultados
     pendientes = [i for i, r in enumerate(resultados) if r.confianza < umbral_segunda_opinion]
-    if not pendientes:
+    if solo_obligatorios:
+        disparan = [i for i in pendientes if campos[i].obligatorio or resultados[i].valor is not None or resultados[i].valor_texto]
+    else:
+        disparan = pendientes
+    if not disparan:
         return resultados
     alt = segunda_opinion()
     if not alt:

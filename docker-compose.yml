@@ -92,6 +92,8 @@ services:
       OCR_MOTOR: ${OCR_MOTOR:-tesseract}
       OCR_IDIOMA: ${OCR_IDIOMA:-spa}
       OCR_DPI: ${OCR_DPI:-300}
+      # Un campo opcional vacio no dispara por si solo la segunda opinion (lenta). false = comportamiento anterior.
+      OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS: ${OCR_SEGUNDA_OPINION_SOLO_OBLIGATORIOS:-true}
       ALMACEN_RUTA: /data/archivos
       # Retención de documentos (datos personales): se eliminan pasados N días. 0 = sin caducidad automática.
       DOC_RETENCION_DIAS: ${DOC_RETENCION_DIAS:-30}
