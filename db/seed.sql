@@ -151,7 +151,7 @@ BEGIN
     SET @VersionId = SCOPE_IDENTITY();
 
     INSERT INTO dbo.PalabraClave (PlantillaVersionId, Texto, Peso) VALUES
-        (@VersionId, 'cedula de identidad|cedula identidad|carnet de identidad|carnet identidad', 5),
+        (@VersionId, 'cedula de identidad|cedula identidad|carnet de identidad|carnet identidad|cedula de ciudadania|cedula ciudadania|identificacion y cedulacion', 5),
         (@VersionId, 'nacionalidad', 2),
         (@VersionId, 'fecha de nacimiento|fecha nacimiento|nacimiento', 3),
         (@VersionId, 'sexo', 1),
@@ -159,15 +159,15 @@ BEGIN
 
     INSERT INTO dbo.CampoPlantilla (PlantillaVersionId, Nombre, Etiqueta, TipoDato, Obligatorio, Metodo, ReglaJson, Orden) VALUES
         (@VersionId, 'numero_documento', 'Número de documento', 'cedula', 1, 'regex',
-            N'{"metodo":"regex","regex":"(?i)(?:\\bcc\\s*N[:.]?\\s*(\\d{10})\\b|DOCUMENTO\\s*:?\\s*([\\d.-]{6,})|DOCUMENTO[\\s\\S]{0,60}?\\b(\\d{10})\\b)"}', 1),
+            N'{"metodo":"regex","regex":"(?i)(?:\\bcc\\s*N[:.]?\\s*(\\d{10})\\b|DOCUMENTO\\s*:?\\s*([\\d.-]{6,})|DOCUMENTO[\\s\\S]{0,60}?\\b(\\d{10})\\b|(?<!\\d)(\\d{9}\\s*-\\s*\\d)(?!\\d))"}', 1),
         (@VersionId, 'nombres', 'Nombres', 'texto', 1, 'ancla',
             N'{"metodo":"ancla","ancla":"Nombres","regex":"[^\\n]+"}', 2),
         (@VersionId, 'apellidos', 'Apellidos', 'texto', 1, 'ancla',
             N'{"metodo":"ancla","ancla":"Apellidos","regex":"[^\\n]+"}', 3),
         (@VersionId, 'fecha_nacimiento', 'Fecha de nacimiento', 'fecha', 1, 'regex',
-            N'{"metodo":"regex","regex":"(?i)FECHA\\s+DE\\s+NACIMIEN\\w*\\s*:?(?:[^\\n]*\\n){0,4}?[^\\n]*?(\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}|\\d{1,2}\\s+[A-Za-z]{3,10}\\s+[A-Za-z]?\\d{3,4})"}', 4),
+            N'{"metodo":"regex","regex":"(?i)FECHA\\s+DE\\s+NACIMIEN\\w*\\s*:?(?:[^\\n]*\\n){0,4}?[^\\n]*?(\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}|\\d{1,2}\\s+[A-Za-z]{3,10}\\s+[A-Za-z]?\\d{3,4})"}', 4),
         (@VersionId, 'fecha_vencimiento', 'Fecha de vencimiento', 'fecha', 0, 'regex',
-            N'{"metodo":"regex","regex":"(?i)(?:FECHA\\s+DE\\s+)?VENC\\w*\\s*:?(?:[^\\n]*\\n){0,4}?[^\\n]*?(\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}|\\d{1,2}\\s+[A-Za-z]{3,10}\\s+[A-Za-z]?\\d{3,4})"}', 5),
+            N'{"metodo":"regex","regex":"(?i)(?:FECHA\\s+DE\\s+)?VENC\\w*\\s*:?(?:[^\\n]*\\n){0,4}?[^\\n]*?(\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}|\\d{1,2}\\s+[A-Za-z]{3,10}\\s+[A-Za-z]?\\d{3,4})"}', 5),
         (@VersionId, 'nacionalidad', 'Nacionalidad', 'texto', 0, 'regex',
             N'{"metodo":"regex","regex":"(?i)(?:NACIONALIDAD\\s*:\\s*([A-Za-z\u00f1\u00d1]+)|\\b(ECUATORIAN[OA]|COLOMBIAN[OA]|PERUAN[OA]|VENEZOLAN[OA]|CHILEN[OA]|ARGENTIN[OA]|MEXICAN[OA]|BOLIVIAN[OA]|CUBAN[OA]|ESPA[\u00d1N]OL[A]?)\\b)"}', 6),
         (@VersionId, 'sexo', 'Sexo', 'texto', 0, 'regex',

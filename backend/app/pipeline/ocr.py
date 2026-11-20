@@ -105,6 +105,10 @@ class PaddleOCRMotor:
             raise MotorNoDisponible(f"PaddleOCR no está instalado/disponible: {e}") from e
         self._PaddleOCR = PaddleOCR
         self._instancias: dict[str, object] = {}
+        # Paddle (oneDNN) ata sus predictores al hilo que los crea/calienta: ejecutarlos desde OTRO hilo falla con
+        # "could not execute a primitive". Como la API atiende cada petición en un hilo distinto del pool, TODO el
+        # uso de Paddle (crear + inferir) va a un único hilo dedicado.
+        self._hilo = ThreadPoolExecutor(max_workers=1, thread_name_prefix="paddle")
 
     def _motor(self, idioma: str):
         clave = self._MAPA_IDIOMA.get(idioma, "latin")
@@ -113,9 +117,11 @@ class PaddleOCRMotor:
         return self._instancias[clave]
 
     def leer(self, imagen: np.ndarray, idioma: str = "spa") -> PaginaOCR:
+        def _inferir():
+            return self._motor(idioma).ocr(imagen, cls=True)
+
         try:
-            motor = self._motor(idioma)
-            resultado = motor.ocr(imagen, cls=True)
+            resultado = self._hilo.submit(_inferir).result()
         except Exception as e:  # noqa: BLE001
             raise MotorNoDisponible(f"PaddleOCR falló en tiempo de ejecución: {e}") from e
         palabras: list[PalabraOCR] = []

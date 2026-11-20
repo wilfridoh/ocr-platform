@@ -134,6 +134,57 @@ def _posiciones_ancla(lineas: list[str], ancla_norm: str) -> list[tuple[int, flo
     return cands
 
 
+# Etiquetas que delimitan el bloque de valores de una etiqueta combinada (otra etiqueta del documento, no un valor)
+_RE_OTRA_ETIQUETA = re.compile(
+    r"\b(?:lugar|fecha|nacimiento|nacionalidad|sexo|estado|civil|firma|domicilio|profesion|instruccion|"
+    r"conyuge|padres?|madres?|emision|expedicion|vencimiento|numero|cedula|identificacion|registro)\b"
+)
+_LINEAS_BUSQUEDA_COMBINADA = 6
+
+
+def _limpiar_valor_combinado(linea: str) -> str:
+    """Quita el ruido del OCR en los extremos de la línea ("#) [1] - FELIX FRANCISCO" -> "FELIX FRANCISCO").
+    Se conservan las palabras cortas del medio ("DE", "LA"): solo se recortan extremos sin ≥2 letras seguidas."""
+    palabras = linea.split()
+
+    def ruido(p: str) -> bool:
+        return not (p.isalpha() and len(p) >= 2)
+
+    while palabras and ruido(palabras[0]):
+        palabras.pop(0)
+    while palabras and ruido(palabras[-1]):
+        palabras.pop()
+    return " ".join(palabras)
+
+
+def _valor_etiqueta_combinada(
+    lineas: list[str], idx: int, ancla_norm: str, otras_anclas: tuple[str, ...]
+) -> str | None:
+    """Etiqueta combinada ("APELLIDOS Y NOMBRES"): el k-ésimo valor es la k-ésima línea de texto que sigue,
+    donde k es la posición de esta ancla dentro de la etiqueta. None si la línea no es una etiqueta combinada."""
+    linea_norm = _normaliza(lineas[idx])
+    if _RE_PARENTESCO.search(linea_norm):
+        return None  # "Apellidos y nombres del padre": es de otra persona
+    propia = linea_norm.find(ancla_norm)
+    if propia < 0:
+        return None
+    otras = [p for a in otras_anclas if (p := linea_norm.find(a)) >= 0]
+    if not otras:
+        return None
+    k = sum(1 for p in otras if p < propia)
+    valores: list[str] = []
+    for linea in lineas[idx + 1 : idx + 1 + _LINEAS_BUSQUEDA_COMBINADA]:
+        norm = _normaliza(linea)
+        if _RE_OTRA_ETIQUETA.search(norm) or ancla_norm in norm or any(a in norm for a in otras_anclas):
+            break  # otra etiqueta (con su propio valor): ya no son valores de la etiqueta combinada
+        valor = _limpiar_valor_combinado(linea)
+        if sum(c.isalpha() for c in valor) >= 3:
+            valores.append(valor)
+        if len(valores) > k:
+            return valores[k]
+    return None
+
+
 def _extraer_ancla(
     campo: CampoPlantillaDTO, paginas: list[PaginaOCR], otras_anclas: tuple[str, ...] = ()
 ) -> tuple[str | None, int | None, float]:
@@ -149,6 +200,10 @@ def _extraer_ancla(
             palabras_norm = [_normaliza(w) for w in palabras_linea]
             inicio, fin_ancla = _ventana_ancla(palabras_norm, ancla_norm)
             if _es_etiqueta_compuesta(palabras_linea, palabras_norm, inicio, fin_ancla, ancla_norm, otras_anclas):
+                # etiqueta combinada ("APELLIDOS Y NOMBRES"): los valores van en las líneas siguientes, en el mismo orden
+                combinado = _valor_etiqueta_combinada(lineas, idx, ancla_norm, otras_anclas)
+                if combinado:
+                    return combinado, pagina.numero, _confianza_region(pagina.palabras, combinado) * (score / 100.0)
                 continue  # etiqueta de otro campo (p. ej. "... del Padre"): probar la siguiente candidata
             resto = " ".join(palabras_linea[fin_ancla:]).strip(" :.-\t")
             if not resto and campo.regla.misma_linea and idx + 1 < len(lineas):

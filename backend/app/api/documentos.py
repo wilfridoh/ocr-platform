@@ -141,4 +141,4 @@ def reprocesar(
     except PlantillaForzadaNoExiste as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     documento = repo.obtener_documento(db, doc_id)
-    return resultado.a_contrato(doc_id, documento.NombreArchivo, estado="COMPLETADO")
+    return resultado.a_contrato(doc_id, documento.NombreArchivo, estado=documento.Estado)

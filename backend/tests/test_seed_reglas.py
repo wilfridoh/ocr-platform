@@ -116,6 +116,7 @@ def test_migraciones_coinciden_con_el_seed_y_son_ascii():
     patrones = {
         "migracion_002_reglas_campos.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', '\w+', N'\{.*?\}', N'(\{.*?\})'\)",
         "migracion_003_reglas_cedula_ecuador.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
+        "migracion_004_cedula_ciudadania.sql": r"\('([a-z_]+)', '([a-z_]+)', '\w+', N'(\{.*?\})'\)",
     }
     for nombre, patron in patrones.items():
         sql = (base / nombre).read_text(encoding="utf-8")
@@ -126,4 +127,74 @@ def test_migraciones_coinciden_con_el_seed_y_son_ascii():
         for codigo, campo, nuevo in filas:
             finales[(codigo, campo)] = nuevo  # la migración posterior reemplaza a la anterior
     for (codigo, campo), nuevo in finales.items():
-        assert nuevo in SEED, f"{codigo}.{campo}: la regla final de las migraciones no está en seed.sql: {nuevo[:80]}"
+        # se compara con la regla del MISMO (plantilla, campo) en el seed, no con cualquier texto del archivo
+        regla_seed = next((c.regla for c in _campos(codigo) if c.nombre == campo), None)
+        assert regla_seed is not None, f"{codigo}.{campo}: el campo no existe en seed.sql"
+        assert ReglaCampo(**json.loads(nuevo)) == regla_seed, f"{codigo}.{campo}: la migración difiere del seed"
+
+
+# "CÉDULA DE CIUDADANÍA" (formato nuevo, foto de celular): etiqueta combinada "APELLIDOS Y NOMBRES" con los dos
+# valores en las líneas siguientes (con ruido), número como 9 dígitos-guion-dígito y fecha ISO. Datos inventados.
+TEXTO_CEDULA_CIUDADANIA = """DIRECCION GENERAL DE REGISTRO CIVIL,
+IDENTIFICACION Y CEDULACION
+CEDULA DE CIUDADANIA NUI 123456789-0
+APELLIDOS Y NOMBRES : UN
+# GARCIA LOPEZ �E �
+#) [1] - MARIA ELENA
+LUGAR DE NACIMIENTO
+GUAYAS
+FECHA DE NACIMIENTO 1980-02-15
+NACIONALIDAD ECUATORIANA
+SEXO MUJER
+ESTADO CIVIL SOLTERA
+"""
+
+
+def test_cedula_ciudadania_etiqueta_combinada_numero_con_guion_y_fecha_iso():
+    pagina = PaginaOCR(numero=1, texto=TEXTO_CEDULA_CIUDADANIA, confianza_media=0.9, ancho=1000, alto=700)
+    r = {c.nombre: c for c in extraer_campos(_campos("cedula_identidad"), [pagina])}
+    assert r["apellidos"].valor == "GARCIA LOPEZ"
+    assert r["nombres"].valor == "MARIA ELENA"
+    assert r["numero_documento"].valor == "1234567890"
+    assert r["fecha_nacimiento"].valor == "1980-02-15"
+    assert r["nacionalidad"].valor == "ECUATORIANA" and r["sexo"].valor == "MUJER"
+
+
+def test_etiqueta_combinada_no_toma_otra_etiqueta_ni_la_del_padre():
+    # sin valores bajo la etiqueta: vacío, no la línea de otro campo
+    texto = "APELLIDOS Y NOMBRES :\nLUGAR DE NACIMIENTO\nGUAYAS\nFECHA DE NACIMIENTO 1980-02-15"
+    pagina = PaginaOCR(numero=1, texto=texto, confianza_media=0.9, ancho=1000, alto=700)
+    r = {c.nombre: c for c in extraer_campos(_campos("cedula_identidad"), [pagina])}
+    assert r["nombres"].valor is None and r["apellidos"].valor is None
+    # "apellidos y nombres del padre" es de otra persona
+    texto = "APELLIDOS Y NOMBRES DEL PADRE\nPEREZ SOTO JOSE"
+    pagina = PaginaOCR(numero=1, texto=texto, confianza_media=0.9, ancho=1000, alto=700)
+    r = {c.nombre: c for c in extraer_campos(_campos("cedula_identidad"), [pagina])}
+    assert r["nombres"].valor is None and r["apellidos"].valor is None
+
+
+def _palabras_clave_seed(codigo: str) -> list:
+    from app.dominio.modelos import PalabraClaveDTO
+
+    ini = SEED.index(f"WHERE Codigo = '{codigo}'")
+    ini = SEED.index("INSERT INTO dbo.PalabraClave", ini)
+    fin = SEED.index("INSERT INTO dbo.CampoPlantilla", ini)
+    return [PalabraClaveDTO(texto=t, peso=int(p)) for t, p in re.findall(r"\(@VersionId, '([^']+)', (\d+)\)", SEED[ini:fin])]
+
+
+def test_cedula_de_ciudadania_clasifica_como_cedula_identidad():
+    from app.pipeline.clasificador import PlantillaCandidata, clasificar
+
+    cand = PlantillaCandidata(
+        plantilla_id=3, version_id=3, codigo="cedula_identidad", umbral_confianza=0.6,
+        palabras_clave=_palabras_clave_seed("cedula_identidad"),
+    )
+    clasificacion, _ = clasificar(TEXTO_CEDULA_CIUDADANIA, [cand])
+    assert clasificacion.tipo == "cedula_identidad" and clasificacion.confianza >= 0.6
+
+
+def test_migracion_005_coincide_con_el_seed():
+    base = Path(__file__).resolve().parents[2] / "db"
+    sql = (base / "migracion_005_cedula_ciudadania_palabras_clave.sql").read_text(encoding="utf-8")
+    nuevo = re.search(r"SET pc\.Texto = '([^']+)'", sql).group(1)
+    assert nuevo in SEED and sql.isascii()
